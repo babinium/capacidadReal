@@ -15,6 +15,22 @@ class Cancelled(Exception):
     pass
 
 
+MAX_WRITE_BYTES = 128 * 1024
+
+
+def write_batches(offsets, block):
+    """Join adjacent samples only: never write the gaps between samples."""
+    batch = []
+    for offset in offsets:
+        if batch and (offset != batch[-1] + block or
+                      (len(batch) + 1) * block > MAX_WRITE_BYTES):
+            yield batch
+            batch = []
+        batch.append(offset)
+    if batch:
+        yield batch
+
+
 def positions(size, block=4096, count=576):
     blocks = size // block
     if blocks < 16:
@@ -80,16 +96,20 @@ def run(device, journal, emit=lambda event: None, cancelled=lambda: False):
     journal.save(originals)
     expected = {p: pattern(p, device.block, nonce) for p in offsets}
     reverse = {value: key for key, value in expected.items()}
-    order = offsets.copy()
-    random.SystemRandom().shuffle(order)
+    batches = list(write_batches(offsets, device.block))
     try:
-        for i, offset in enumerate(order):
+        done = 0
+        for batch in batches:
             if cancelled():
                 raise Cancelled()
             dirty = True  # Include partially failed writes in recovery.
-            device.write(offset, expected[offset])
-            progress("writing", i + 1, len(offsets))
+            device.write(batch[0], b"".join(expected[p] for p in batch))
+            done += len(batch)
+            progress("writing", done, len(offsets))
         device.flush()
+        # All distinct patterns remain on the medium together, so aliases
+        # still collide even though writes now follow ascending addresses.
+        order = offsets.copy()
         random.SystemRandom().shuffle(order)
         for i, offset in enumerate(order):
             if cancelled():
@@ -105,12 +125,20 @@ def run(device, journal, emit=lambda event: None, cancelled=lambda: False):
         if dirty:
             # Ignore cancellation during recovery. Every potentially touched
             # address is restored, including addresses aliased by fake firmware.
-            for i, offset in enumerate(offsets):
+            done = 0
+            for batch in batches:
                 try:
-                    device.write(offset, originals[offset])
+                    device.write(batch[0], b"".join(originals[p] for p in batch))
                 except Exception:
-                    restoration_errors.append(offset)
-                progress("restoring", i + 1, len(offsets))
+                    # A partial batch must not prevent the remaining originals
+                    # from being restored. Retry each constituent sample once.
+                    for offset in batch:
+                        try:
+                            device.write(offset, originals[offset])
+                        except Exception:
+                            restoration_errors.append(offset)
+                done += len(batch)
+                progress("restoring", done, len(offsets))
             try:
                 device.flush()
                 for offset in offsets:

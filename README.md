@@ -27,6 +27,11 @@ En memorias habituales, esas zonas suman aproximadamente **2–3 MB**. No llena
 el pendrive ni lee todos sus gigabytes. El tiempo real depende de la velocidad
 y del estado de la memoria; todavía no publicamos tiempos medidos en hardware.
 
+Desde la versión 0.2.3, las escrituras siguen un orden y agrupan zonas contiguas
+para reducir operaciones en pendrives. Se comprueban las mismas muestras y se
+verifica la restauración. Esto no elimina las esperas de una memoria que deja
+de responder; la mejora de tiempo depende del dispositivo.
+
 ### ¿Qué significa «restaurar los datos»?
 
 Para saber si una zona guarda información de verdad, hay que escribir algo y
@@ -43,8 +48,8 @@ que el programa restaura correctamente lo que modifica; ese archivo no es tu USB
 
 ## Descargar e instalar
 
-**[Descargar el instalador .deb 0.2.2](https://github.com/babinium/capacidadReal/releases/download/v0.2.2/capacidadreal_0.2.2_all.deb)**
-· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.2)
+**[Descargar el instalador .deb 0.2.3](https://github.com/babinium/capacidadReal/releases/download/v0.2.3/capacidadreal_0.2.3_all.deb)**
+· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.3)
 
 Probado en **Debian 13 con entorno gráfico**. Otras distribuciones basadas en
 Debian pueden funcionar si tienen las dependencias necesarias; no se han verificado.
@@ -60,7 +65,7 @@ Si tu escritorio no tiene instalador gráfico, abrí una terminal en la carpeta
 donde descargaste el archivo y ejecutá:
 
 ```bash
-sudo apt install ./capacidadreal_0.2.2_all.deb
+sudo apt install ./capacidadreal_0.2.3_all.deb
 ```
 
 La aplicación cierra el acceso a los archivos de la memoria durante la prueba.

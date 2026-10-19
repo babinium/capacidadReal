@@ -10,9 +10,31 @@ duración depende especialmente de la latencia y del estado del USB. No se prome
 un tiempo máximo: el kernel puede esperar a un dispositivo que falla.
 
 Todos los originales se leen y se guardan antes de escribir. Después se escriben
-patrones distintos, se sincroniza y se leen en otro orden. Se utiliza E/S directa
+patrones distintos en orden ascendente, se sincroniza y se leen en orden aleatorio. Se utiliza E/S directa
 y se invalida la caché del kernel. Finalmente se restauran y se vuelven a leer los
 originales. La salida solo indica restauración correcta si esa lectura coincide.
+
+## Optimización de escrituras para pendrives (0.2.3)
+
+Se conservan las mismas posiciones y patrones independientes. Las escrituras
+avanzan en orden de dirección, evitando los saltos aleatorios de la versión
+anterior. Solo las muestras estrictamente contiguas se agrupan en un comando,
+hasta 128 KiB; nunca se escriben los huecos entre muestras. La restauración usa
+el mismo agrupamiento. Si falla un grupo durante la restauración, se reintenta
+cada bloque por separado y se conserva la copia si no se confirma la recuperación.
+
+En la geometría de 15.728.640.000 bytes se mantienen 640 muestras. Las escrituras
+de prueba más restauración pasan de 1280 a 1228 comandos (aproximadamente 4 %
+menos). El cambio principal es el orden de acceso: no se afirma una aceleración
+en segundos sin medirla en hardware. Los reinicios y tiempos de espera del
+controlador USB pueden seguir dominando la duración.
+
+Todas las muestras quedan escritas simultáneamente antes de verificarlas para
+seguir detectando direcciones que reutilizan la misma memoria. Se mantienen
+la sincronización, E/S directa, lectura posterior de originales y recuperación
+de copias creadas por versiones anteriores.
+
+## Resultados
 
 - **Capacidad compatible:** todas las muestras pasan; no se detectó capacidad falsa.
 - **Capacidad falsa detectada:** direcciones distintas devuelven el patrón escrito
@@ -66,4 +88,4 @@ Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
 Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
 
-Versión inicial: **0.2.2**. Licencia MIT.
+Versión inicial: **0.2.3**. Licencia MIT.

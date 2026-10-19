@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from capacidadreal.devices import identify, serial_details, usable, validate
 from capacidadreal.helper import Journal, RawDevice
-from capacidadreal.engine import run
+from capacidadreal.engine import MAX_WRITE_BYTES, run
 from test_engine import MemoryDevice, MemoryJournal
 
 
@@ -71,7 +71,7 @@ class SafetyTests(unittest.TestCase):
             dev.fd = os.open(path, os.O_RDWR | os.O_DIRECT)
             dev.block = 4096
             dev.size = len(original)
-            dev.buffer = mmap.mmap(-1, dev.block)
+            dev.buffer = mmap.mmap(-1, MAX_WRITE_BYTES)
             dev.flush = lambda: os.fsync(dev.fd)
             try:
                 result = run(dev, MemoryJournal())

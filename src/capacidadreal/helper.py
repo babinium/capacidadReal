@@ -16,7 +16,7 @@ import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from capacidadreal.devices import inventory, validate
-from capacidadreal.engine import Cancelled, run
+from capacidadreal.engine import Cancelled, MAX_WRITE_BYTES, run
 
 STOP = threading.Event()
 
@@ -41,22 +41,26 @@ class RawDevice:
             self.block = max(4096, logical)
             if self.size != item["size"] or self.block > 65536:
                 raise ValueError("La geometría del dispositivo cambió o no es compatible.")
-            self.buffer = mmap.mmap(-1, self.block)
+            self.buffer = mmap.mmap(-1, MAX_WRITE_BYTES)
         except BaseException:
             os.close(self.fd)
             raise
 
     def read(self, offset):
-        got = os.preadv(self.fd, [self.buffer], offset)
+        with memoryview(self.buffer) as view:
+            got = os.preadv(self.fd, [view[:self.block]], offset)
         if got != self.block:
             raise OSError("Lectura incompleta del dispositivo.")
-        return self.buffer[:]
+        return self.buffer[:self.block]
 
     def write(self, offset, data):
-        if len(data) != self.block or offset % self.block:
+        if (not data or len(data) % self.block or len(data) > MAX_WRITE_BYTES
+                or offset % self.block or offset < 0 or offset + len(data) > self.size):
             raise ValueError("Bloque de prueba inválido.")
-        self.buffer[:] = data
-        if os.pwritev(self.fd, [self.buffer], offset) != self.block:
+        self.buffer[:len(data)] = data
+        with memoryview(self.buffer) as view:
+            written = os.pwritev(self.fd, [view[:len(data)]], offset)
+        if written != len(data):
             raise OSError("Escritura incompleta del dispositivo.")
 
     def flush(self):

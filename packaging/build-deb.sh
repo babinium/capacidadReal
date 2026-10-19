@@ -17,4 +17,4 @@ mkdir -p "$stage/usr/share/doc/capacidadreal/docs"
 install -m 644 docs/DETALLES.md "$stage/usr/share/doc/capacidadreal/docs/DETALLES.md"
 install -m 644 LICENSE "$stage/usr/share/doc/capacidadreal/copyright"
 mkdir -p artifacts
-dpkg-deb --root-owner-group --build "$stage" artifacts/capacidadreal_0.2.2_all.deb
+dpkg-deb --root-owner-group --build "$stage" artifacts/capacidadreal_0.2.3_all.deb
