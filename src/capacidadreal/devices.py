@@ -15,7 +15,9 @@ def inventory():
 def identify(item, sysfs=Path("/sys/class/block")):
     item = dict(item)
     item["native_sd"] = False
-    item["serial"] = (item.get("serial") or "").strip()
+    # Keep the raw USB identity stable for recovery files from earlier versions.
+    # Only the displayed/copyable value is normalized by serial_details().
+    item["serial"] = item.get("serial")
     item["serial_source"] = "usb" if item.get("tran") == "usb" else "unknown"
     name = os.path.basename(item["name"])
     if re.fullmatch(r"mmcblk\d+", name):

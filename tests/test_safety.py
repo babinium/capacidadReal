@@ -50,6 +50,7 @@ class SafetyTests(unittest.TestCase):
 
     def test_usb_serial_source_and_missing_serial(self):
         info = identify(device(serial="  ABC123  "))
+        self.assertEqual(info["serial"], "  ABC123  ")
         serial, note, available = serial_details(info)
         self.assertEqual(serial, "ABC123")
         self.assertIn("lector", note)
@@ -57,6 +58,7 @@ class SafetyTests(unittest.TestCase):
         serial, note, available = serial_details(identify(device(serial=None)))
         self.assertEqual(serial, "No disponible")
         self.assertFalse(available)
+        self.assertIsNone(identify(device(serial=None))["serial"])
 
     def test_real_direct_io_on_temporary_file_restores_every_byte(self):
         # Exercise production preadv/pwritev and aligned mmap buffers on an
