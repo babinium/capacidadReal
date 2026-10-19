@@ -19,24 +19,24 @@ PHASES = {"saving": (0, "Guardando los bloques originales"),
           "checking": (2, "Comprobando las muestras"),
           "restoring": (3, "Restaurando los datos originales")}
 CSS = b"""
-window { background: #f3f5f9; color: #17263d; }
-.hero { background: #17263d; padding: 24px 28px; }
-.hero label { color: #ffffff; }
+window { background: #0f141b; color: #e6edf5; }
+.hero { background: #080c12; border-bottom: 1px solid #1f2935; padding: 24px 28px; }
+.hero label { color: #f4f8fd; }
 .brand { font-size: 26px; font-weight: 800; }
-.hero-subtitle { color: #c0cfdf; font-size: 13px; }
+.hero-subtitle { color: #9fb0c3; font-size: 13px; }
 .content { padding: 22px 28px; }
-.card { background: #ffffff; border: 1px solid #dee4ed; border-radius: 12px; padding: 20px; }
-.section { font-size: 11px; font-weight: 700; color: #62718a; }
+.card { background: #161e29; border: 1px solid #27313f; border-radius: 12px; padding: 20px; }
+.section { font-size: 11px; font-weight: 700; color: #8ea1b6; }
 .headline { font-size: 23px; font-weight: 700; }
-.muted { color: #62718a; font-size: 12px; }
+.muted { color: #93a4b8; font-size: 12px; }
 .body { font-size: 13px; }
-.primary { background: #2262df; color: white; border: 0; border-radius: 8px; padding: 11px 20px; font-weight: 700; }
-.primary:disabled { background: #c6cedb; color: #6b7688; }
-.secondary { background: #edf1f7; border: 0; border-radius: 8px; padding: 9px 13px; }
-.success { color: #08735b; }
-.warning { color: #a44c13; }
-progressbar trough { min-height: 6px; border: 0; background: #e5eaf2; border-radius: 4px; }
-progressbar progress { background: #2262df; border: 0; border-radius: 4px; }
+.primary { background: #3b82f6; color: #ffffff; border: 0; border-radius: 8px; padding: 11px 20px; font-weight: 700; }
+.primary:disabled { background: #27313f; color: #6f7f92; }
+.secondary { background: #232e3b; color: #dbe5f0; border: 1px solid #33404f; border-radius: 8px; padding: 9px 13px; }
+.success { color: #34d399; }
+.warning { color: #fbbf24; }
+progressbar trough { min-height: 6px; border: 0; background: #243040; border-radius: 4px; }
+progressbar progress { background: #3b82f6; border: 0; border-radius: 4px; }
 combobox button { padding: 8px; border-radius: 7px; }
 """
 
@@ -68,6 +68,9 @@ class Window(Gtk.ApplicationWindow):
         self.using_sudo = False
         self.display_identity = None
         self.connect("delete-event", self.on_close)
+        settings = Gtk.Settings.get_default()
+        if settings:
+            settings.set_property("gtk-application-prefer-dark-theme", True)
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
@@ -141,8 +144,8 @@ class Window(Gtk.ApplicationWindow):
 
     def draw_grid(self, widget, cr):
         width, height = widget.get_allocated_width(), widget.get_allocated_height()
-        colors = {"pending": (0.88, 0.91, 0.95), "ok": (0.12, 0.66, 0.51),
-                  "mismatch": (0.93, 0.42, 0.28), "error": (0.95, 0.70, 0.22)}
+        colors = {"pending": (0.15, 0.19, 0.24), "ok": (0.20, 0.83, 0.60),
+                  "mismatch": (0.97, 0.44, 0.44), "error": (0.98, 0.75, 0.14)}
         for i, value in enumerate(self.cells):
             x, y = i % 48, i // 48
             cr.set_source_rgb(*colors.get(value, colors["pending"]))

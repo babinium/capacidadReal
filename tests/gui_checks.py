@@ -7,6 +7,7 @@ app = Gtk.Application(application_id="io.github.babinium.capacidadReal.Tests")
 app.register(None)
 with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted process launch")):
     window = Window(app, demo=True)
+    assert Gtk.Settings.get_default().get_property("gtk-application-prefer-dark-theme")
     assert window.start_button.get_sensitive()
     window.start_clicked()
     assert "compatible" in window.title_label.get_text()

@@ -1,7 +1,8 @@
 # capacidadReal
 
 **capacidadReal detecta memorias USB y tarjetas que anuncian más capacidad de la
-que realmente tienen.** Es una aplicación gráfica liviana, en español, para Linux.
+que realmente tienen.** Es una aplicación gráfica liviana, en español, para Linux,
+con interfaz oscura.
 
 Las unidades falsificadas o de mala calidad son frecuentes: el sistema muestra,
 por ejemplo, 64 GB, pero la memoria real puede ser de solo 8 GB. Al copiar
@@ -27,9 +28,9 @@ Requisitos: Linux con GTK 3 y Python 3.11 o posterior, UDisks2 y Polkit
 (`pkexec`), o `sudo` como alternativa. Se comprueba en Debian 13 amd64 y está
 pensado para Debian y derivados como Ubuntu.
 
-1. Descargá `capacidadreal_0.1.0_all.deb` desde Releases y abrilo con el
+1. Descargá `capacidadreal_0.2.0_all.deb` desde Releases y abrilo con el
    instalador de paquetes de tu escritorio.
-   Si tu escritorio no tiene uno: `sudo apt install ./capacidadreal_0.1.0_all.deb`.
+   Si tu escritorio no tiene uno: `sudo apt install ./capacidadreal_0.2.0_all.deb`.
 2. Abrí **capacidadReal** en el menú de aplicaciones.
 3. Seleccioná el pendrive y pulsá **Comprobar capacidad**.
 4. Autorizá el acceso de administrador cuando Linux lo solicite.
@@ -108,4 +109,4 @@ Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
 Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
 
-Versión inicial: **0.1.0**. Licencia MIT.
+Versión actual: **0.2.0**. Licencia MIT.

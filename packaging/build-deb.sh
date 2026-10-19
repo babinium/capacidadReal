@@ -15,4 +15,4 @@ install -m 644 packaging/*.svg "$stage/usr/share/icons/hicolor/scalable/apps/"
 install -m 644 README.md "$stage/usr/share/doc/capacidadreal/README.md"
 install -m 644 LICENSE "$stage/usr/share/doc/capacidadreal/copyright"
 mkdir -p artifacts
-dpkg-deb --root-owner-group --build "$stage" artifacts/capacidadreal_0.1.0_all.deb
+dpkg-deb --root-owner-group --build "$stage" artifacts/capacidadreal_0.2.0_all.deb
