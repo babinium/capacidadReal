@@ -236,7 +236,7 @@ class Window(Gtk.ApplicationWindow):
             self.device_detail.set_text("Conectá un pendrive o una tarjeta SD extraíble para comenzar.")
         else:
             size = int(item.get("size") or 0)
-            self.device_detail.set_text(f'{item["name"]}  ·  {size / 2**30:.2f} GiB anunciados')
+            self.device_detail.set_text(f'{item["name"]}  ·  {size / 1_000_000_000:.2f} GB anunciados')
             if not size:
                 self.device_detail.set_text("El USB informa 0 bytes. Reconectalo o comprobá la tarjeta del lector.")
 

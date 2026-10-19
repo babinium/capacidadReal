@@ -4,7 +4,8 @@
 
 capacidadReal es una aplicación para Linux con una ventana sencilla, en modo oscuro: elegís la
 memoria, pulsás **Comprobar capacidad** y ves el resultado. También muestra el
-número de serie, cuando está disponible, y permite copiarlo.
+número de serie, cuando está disponible, y permite copiarlo. La capacidad
+anunciada se muestra en GB, igual que en las etiquetas de las memorias.
 
 ## ¿Qué problema resuelve?
 
@@ -54,8 +55,8 @@ que el programa restaura correctamente lo que modifica; ese archivo no es tu USB
 
 ## Descargar e instalar
 
-**[Descargar el instalador .deb 0.2.5](https://github.com/babinium/capacidadReal/releases/download/v0.2.5/capacidadreal_0.2.5_all.deb)**
-· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.5)
+**[Descargar el instalador .deb 0.2.6](https://github.com/babinium/capacidadReal/releases/download/v0.2.6/capacidadreal_0.2.6_all.deb)**
+· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.6)
 
 Probado en **Debian 13 con entorno gráfico**. Otras distribuciones basadas en
 Debian pueden funcionar si tienen las dependencias necesarias; no se han verificado.
@@ -71,7 +72,7 @@ Si tu escritorio no tiene instalador gráfico, abrí una terminal en la carpeta
 donde descargaste el archivo y ejecutá:
 
 ```bash
-sudo apt install ./capacidadreal_0.2.5_all.deb
+sudo apt install ./capacidadreal_0.2.6_all.deb
 ```
 
 La aplicación cierra el acceso a los archivos de la memoria durante la prueba.
