@@ -193,24 +193,23 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(dev.restored())
         self.assertTrue(journal.cleared)
 
-    def test_slow_operation_stops_probing_and_restores_only_attempted_batch(self):
-        from capacidadreal.engine import SlowDevice
+    def test_slow_writes_complete_every_sample_and_restore(self):
         now = [0.0]
         class SlowMemoryDevice(MemoryDevice):
             def write(self, offset, data):
                 super().write(offset, data)
                 now[0] += 3
         dev, journal, events = SlowMemoryDevice(), MemoryJournal(), []
-        with self.assertRaises(SlowDevice):
-            run(dev, journal, emit=events.append, clock=lambda: now[0])
-        self.assertEqual(dev.writes, 2)
+        result = run(dev, journal, emit=events.append, clock=lambda: now[0])
+        probes, _ = positions(dev.size)
+        self.assertEqual(result["status"], "compatible")
+        self.assertEqual(result["passed"], len(probes))
+        self.assertGreater(result["elapsed"], 15)
         self.assertTrue(dev.restored())
         self.assertTrue(journal.cleared)
-        self.assertFalse(any(e["type"] == "result" for e in events))
-        self.assertTrue(any(e["type"] == "slow_stopping" for e in events))
+        self.assertEqual(events[-1]["type"], "result")
 
-    def test_slow_read_before_writes_never_changes_device(self):
-        from capacidadreal.engine import SlowDevice
+    def test_slow_reads_complete_every_sample_and_restore(self):
         now = [0.0]
         class SlowReadDevice(MemoryDevice):
             def read(self, offset):
@@ -218,12 +217,13 @@ class EngineTests(unittest.TestCase):
                 now[0] += 3
                 return data
         dev, journal = SlowReadDevice(), MemoryJournal()
-        with self.assertRaises(SlowDevice):
-            run(dev, journal, clock=lambda: now[0])
-        self.assertEqual(dev.writes, 0)
-        self.assertFalse(journal.saved)
+        result = run(dev, journal, clock=lambda: now[0])
+        self.assertEqual(result["status"], "compatible")
+        self.assertGreater(result["elapsed"], 15)
+        self.assertTrue(dev.restored())
+        self.assertTrue(journal.cleared)
 
-    def test_slow_abort_with_failed_restoration_keeps_recovery_copy(self):
+    def test_slow_device_with_failed_restoration_keeps_recovery_copy(self):
         now = [0.0]
         class SlowMemoryDevice(MemoryDevice):
             def write(self, offset, data):
@@ -236,17 +236,44 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(journal.saved)
         self.assertFalse(journal.cleared)
 
-    def test_total_time_budget_stops_accumulation_of_small_delays(self):
-        from capacidadreal.engine import SlowDevice
+    def test_accumulated_latency_does_not_end_the_test(self):
         now = [0.0]
         class DelayedMemoryDevice(MemoryDevice):
             def write(self, offset, data):
                 super().write(offset, data)
                 now[0] += 0.25
         dev, journal = DelayedMemoryDevice(), MemoryJournal()
-        with self.assertRaises(SlowDevice):
-            run(dev, journal, clock=lambda: now[0], max_seconds=1)
-        self.assertEqual(dev.writes, 8)
+        result = run(dev, journal, clock=lambda: now[0])
+        self.assertEqual(result["status"], "compatible")
+        self.assertEqual(result["samples"], len(positions(dev.size)[0]))
+        self.assertGreater(result["elapsed"], 15)
+        self.assertTrue(dev.restored())
+        self.assertTrue(journal.cleared)
+
+    def test_slow_fake_capacity_is_detected_and_originals_restored(self):
+        now = [0.0]
+        class SlowFakeDevice(MemoryDevice):
+            def write(self, offset, data):
+                super().write(offset, data)
+                now[0] += 3
+        dev, journal = SlowFakeDevice(real=8 * 1024 * 1024, wrap=True), MemoryJournal()
+        result = run(dev, journal, clock=lambda: now[0])
+        self.assertEqual(result["status"], "aliased")
+        self.assertEqual(result["estimated"], dev.real)
+        self.assertGreater(result["elapsed"], 15)
+        self.assertTrue(dev.restored())
+        self.assertTrue(journal.cleared)
+
+    def test_slow_test_can_still_be_cancelled_by_user(self):
+        now = [0.0]
+        class SlowMemoryDevice(MemoryDevice):
+            def write(self, offset, data):
+                super().write(offset, data)
+                now[0] += 3
+        dev, journal = SlowMemoryDevice(), MemoryJournal()
+        with self.assertRaises(Cancelled):
+            run(dev, journal, cancelled=lambda: dev.writes >= 1, clock=lambda: now[0])
+        self.assertEqual(dev.writes, 2)
         self.assertTrue(dev.restored())
         self.assertTrue(journal.cleared)
 

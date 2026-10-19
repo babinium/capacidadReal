@@ -263,7 +263,7 @@ class Window(Gtk.ApplicationWindow):
                     if self.cancel_requested or self.last_phase in ("restoring", "verifying_restore"):
                         text = f"Restauración: esperando respuesta del dispositivo · {waiting} s"
                     else:
-                        text = f"El dispositivo no termina la operación · {waiting} s de espera"
+                        text = f"Esperando al dispositivo · {waiting} s de espera"
                     self.status.set_text(text)
         return True
 
@@ -431,11 +431,6 @@ class Window(Gtk.ApplicationWindow):
             if event["phase"] in ("restoring", "verifying_restore"):
                 self.cancel_button.set_sensitive(False)
             return
-        if kind == "slow_stopping":
-            self.title_label.set_text("Unidad demasiado lenta · restaurando")
-            self.description.set_text("Se detuvo la comprobación rápida. Mantené la unidad conectada hasta verificar los datos originales.")
-            self.cancel_button.set_sensitive(False)
-            return
         self.terminal_event = True
         if kind == "result":
             self.progress.set_fraction(1)
@@ -468,14 +463,6 @@ class Window(Gtk.ApplicationWindow):
             self.progress.set_fraction(1)
             self.status.set_text("Recuperación terminada")
             self.show_ready()
-        elif kind == "slow":
-            self.title_label.set_text("Unidad demasiado lenta para la prueba rápida")
-            self.description.set_text(event["message"])
-            self.status.set_text("Sin resultado de capacidad · originales restaurados")
-            if event.get("restored"):
-                self.show_ready()
-            else:
-                self.ready.hide()
         elif kind == "recovery_needed":
             self.pending_recovery = True
         elif kind == "error":

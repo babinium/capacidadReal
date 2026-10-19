@@ -40,7 +40,7 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     sd = dict(other, serial="0x1234abcd", serial_source="sd")
     window.set_devices([sd])
     assert "tarjeta SD" in window.serial_note.get_text()
-    # Waiting must be explicit; a partial/slow test is never a capacity result.
+    # A slow response keeps the test active until completion or user cancellation.
     window.busy = True
     window.started = 10
     window.terminal_event = False
@@ -50,15 +50,26 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
         window.tick()
     assert "6 s de espera" in window.status.get_text()
     assert not window.ready.get_visible()
+    assert window.busy
+    assert not window.terminal_event
+    assert window.worker is None  # demo must not launch real helpers
+    with patch("capacidadreal.app.time.monotonic", return_value=1000):
+        window.tick()
+    assert "990 s de espera" in window.status.get_text()
+    assert window.busy
+    assert not window.cancel_requested
+    assert not window.terminal_event
+    # A later response resumes normal progress, then a result can be shown.
+    window.on_event({"type": "progress", "phase": "checking", "done": 128, "total": 128})
+    assert "Comprobando" in window.status.get_text()
+    assert "128/128" in window.status.get_text()
+    assert not window.terminal_event
     window.cancel_requested = True
+    window.last_progress = 10
     with patch("capacidadreal.app.time.monotonic", return_value=17):
         window.tick()
     assert "Restauración" in window.status.get_text()
-    window.on_event({"type": "slow_stopping"})
-    assert not window.terminal_event
-    assert not window.ready.get_visible()
-    window.on_event({"type": "slow", "message": "No se determinó su capacidad.", "restored": True})
-    assert "demasiado lenta" in window.title_label.get_text()
+    window.on_event({"type": "cancelled", "restored": True})
     assert window.ready.get_visible()
     assert "compatible" not in window.title_label.get_text()
     window.busy = False
@@ -66,4 +77,4 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     assert not window.start_button.get_sensitive()
     assert not window.copy_serial_button.get_sensitive()
     window.destroy()
-print("Interfaz: selección, resultado, serie copiable, serie SD, serie ausente desconexión, espera y parada por lentitud verificados.")
+print("Interfaz: selección, resultado, serie copiable, serie SD, serie ausente desconexión, espera sin corte automático y cancelación verificados.")

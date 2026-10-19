@@ -16,7 +16,7 @@ import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from capacidadreal.devices import inventory, validate
-from capacidadreal.engine import Cancelled, SlowDevice, MAX_WRITE_BYTES, run
+from capacidadreal.engine import Cancelled, MAX_WRITE_BYTES, run
 
 STOP = threading.Event()
 
@@ -174,10 +174,6 @@ def main():
         return 0
     except Cancelled:
         emit({"type": "cancelled", "restored": True})
-        return 0
-    except SlowDevice as exc:
-        # run raises only AFTER restoration is verified, or before any write.
-        emit({"type": "slow", "message": str(exc), "restored": True})
         return 0
     except Exception as exc:
         emit({"type": "error", "message": str(exc)})

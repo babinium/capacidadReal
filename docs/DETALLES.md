@@ -19,7 +19,7 @@ muestras aún no intentadas al cancelar. Las direcciones que se repiten en el
 modelo de fraude modular comparten el mismo original; también se verifican
 las muestras que puedan coincidir con ellas.
 
-## Rapidez y unidades que no responden (0.2.4)
+## Rapidez y unidades lentas (0.2.5)
 
 Se agrupan solo muestras estrictamente contiguas, hasta 128 KiB; nunca se
 escriben los huecos entre muestras. En la geometría de 15.728.640.000 bytes,
@@ -27,21 +27,21 @@ las escrituras de prueba más restauración pasan de 1228 (0.2.3) a 204 si la
 prueba termina normalmente. Se informa el número de comandos calculado,
 no una aceleración en segundos: aún no hay una medición comparativa en hardware.
 
-El motor deja de probar al observar una operación de al menos 2 segundos o
-15 segundos acumulados en la comprobación. Ese presupuesto se controla antes y
-después de las operaciones; **no interrumpe una llamada bloqueada en el kernel**.
-Los bloqueos o reinicios del controlador USB pueden prolongar tanto la prueba
-como la recuperación. La interfaz muestra explícitamente cuándo se espera una
-respuesta y cuántas muestras completó cada fase.
+La prueba no tiene un límite automático de tiempo por operación ni de duración
+total. La versión 0.2.5 elimina los cortes de 2 y 15 segundos introducidos en
+0.2.4: la lentitud por sí sola no impide completar la comprobación. El motor
+continúa hasta completar las muestras, recibir cancelación o encontrar un
+error real. La interfaz muestra la espera mientras Linux procesa una operación;
+cuando llega la respuesta, continúa mostrando el avance normal.
 
-La restauración queda fuera del presupuesto de tiempo: restaura solo los lotes
-intentados y verifica todos los originales guardados. Si falla un lote, se
-reintenta cada bloque por separado; la copia se conserva si no se confirma la
-recuperación. Una parada por lentitud entrega un estado sin capacidad determinada,
-y solo habilita el aviso para retirar cuando la restauración fue verificada
-o cuando no llegó a escribir. La recuperación acepta las copias de versiones
-anteriores: lee cada original guardado y solo lo reescribe si difiere, para no
-repetir cientos de escrituras innecesarias en una unidad lenta.
+Al cancelar, se espera que la operación pendiente devuelva el control y se
+restauran solo los lotes cuya escritura se intentó. Se verifican todos los
+originales guardados. Si falla un lote durante la restauración, se reintenta
+cada bloque por separado y se conserva la copia si no se confirma la recuperación.
+La recuperación acepta las copias de versiones anteriores: lee cada original
+guardado y solo lo reescribe si difiere, para no repetir cientos de escrituras
+innecesarias en una unidad lenta. El aviso para retirar se muestra únicamente
+tras la restauración verificada o cuando no hubo escrituras.
 
 Todas las muestras quedan escritas simultáneamente antes de verificarlas para
 seguir detectando direcciones que reutilizan la misma memoria. Se mantienen
@@ -101,4 +101,4 @@ Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
 Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
 
-Versión inicial: **0.2.4**. Licencia MIT.
+Versión actual: **0.2.5**. Licencia MIT.
