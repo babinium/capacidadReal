@@ -1,12 +1,34 @@
 # capacidadReal
 
-Aplicación gráfica liviana, en español, para comprobar rápidamente la capacidad
-anunciada de memorias USB en Linux. Inspirada en la sencillez de ValiDrive;
-implementación independiente, sin relación con GRC. No ejecuta F3.
+**capacidadReal detecta memorias USB y tarjetas que anuncian más capacidad de la
+que realmente tienen.** Es una aplicación gráfica liviana, en español, para Linux.
 
-## Uso
+Las unidades falsificadas o de mala calidad son frecuentes: el sistema muestra,
+por ejemplo, 64 GB, pero la memoria real puede ser de solo 8 GB. Al copiar
+archivos grandes, estos se corrompen o desaparecen sin aviso. capacidadReal hace
+una prueba rápida por muestreo: escribe, lee y restaura unos cientos de bloques
+para descubrir si el controlador repite direcciones o si el espacio anunciado no
+existe.
 
-1. Instalá `capacidadreal_0.1.0_all.deb` con el instalador de paquetes de tu escritorio.
+Sirve para revisar un pendrive recién comprado, una unidad usada o una memoria
+de dudosa procedencia antes de confiarle datos. Inspirada en la sencillez de
+ValiDrive; implementación independiente, sin relación con GRC. No ejecuta F3.
+
+> **La prueba escribe en el dispositivo**, aunque después restaura los bloques
+> originales. Usá una unidad vacía o conservá una copia de los archivos
+> importantes. Leé «Cuidado de datos y recuperación» antes de empezar.
+
+## Descarga e instalación
+
+El paquete `.deb` se publica en la sección **Releases** de este repositorio.
+También podés generarlo vos mismo con `bash packaging/build-deb.sh`.
+
+Requisitos: Linux con GTK 3 y Python 3.11 o posterior, UDisks2 y Polkit
+(`pkexec`), o `sudo` como alternativa. Se comprueba en Debian 13 amd64 y está
+pensado para Debian y derivados como Ubuntu.
+
+1. Descargá `capacidadreal_0.1.0_all.deb` desde Releases y abrilo con el
+   instalador de paquetes de tu escritorio.
    Si tu escritorio no tiene uno: `sudo apt install ./capacidadreal_0.1.0_all.deb`.
 2. Abrí **capacidadReal** en el menú de aplicaciones.
 3. Seleccioná el pendrive y pulsá **Comprobar capacidad**.
@@ -23,7 +45,7 @@ Las contraseñas no se guardan ni forman parte del paquete o del repositorio.
 ## Qué comprueba y qué significa el resultado
 
 Se prueban 576 posiciones distribuidas por el espacio anunciado, más pares de
-direcciones separados por potencias de dos para descubrir controladores que
+direcciones separadas por potencias de dos para descubrir controladores que
 reutilizan la misma memoria. Son aproximadamente 600–750 bloques de 4 KiB en
 unidades habituales. El volumen de datos probado es pequeño y acotado; la
 duración depende especialmente de la latencia y del estado del USB. No se promete
@@ -70,7 +92,7 @@ que sea el mismo dispositivo: algunos USB no tienen número de serie único.
 
 ## Desarrollo y paquete
 
-Python 3 + GTK 3; sin Electron, sin servicios permanentes y sin compilación local
+Python 3 + GTK 3; sin Electron, sin servicios permanentes y sin compilación
 necesaria para usarlo. El ayudante privilegiado acepta únicamente operaciones
 de comprobación y recuperación sobre un disco USB validado. La interfaz corre
 como usuario normal. El paquete usa dependencias de Debian y arquitectura `all`;
@@ -80,7 +102,7 @@ El workflow manual `.github/workflows/compilar-debian.yml` ejecuta pruebas del
 motor y de seguridad, construye e instala el `.deb` en Debian 13 y captura la
 interfaz con Xvfb usando una unidad ficticia. Los artefactos incluyen el paquete,
 capturas, pruebas y comprobantes SHA-256. No se hacen pruebas sobre discos reales
-desde CI. La compilación no publica releases ni cambia la visibilidad del repo.
+desde CI. El workflow no publica releases automáticamente.
 
 Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
