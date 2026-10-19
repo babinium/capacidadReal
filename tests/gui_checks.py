@@ -11,6 +11,8 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     assert window.start_button.get_sensitive()
     window.start_clicked()
     assert "compatible" in window.title_label.get_text()
+    assert window.ready.get_visible()
+    assert "desenchufar" in window.ready.get_text()
     # Refreshing the same drive preserves the result.
     window.set_devices(list(window.devices))
     assert "compatible" in window.title_label.get_text()
@@ -18,6 +20,7 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     other = dict(window.devices[0], name="/dev/demo2", serial="OTHER", size=8_000_000_000)
     window.set_devices([other])
     assert "compatible" not in window.title_label.get_text()
+    assert not window.ready.get_visible()
     assert all(c == "pending" for c in window.cells)
     assert window.progress.get_fraction() == 0
     window.set_devices([])

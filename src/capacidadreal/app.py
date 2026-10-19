@@ -40,6 +40,7 @@ window { background: #0f141b; color: #e6edf5; }
 progressbar trough { min-height: 6px; border: 0; background: #243040; border-radius: 4px; }
 progressbar progress { background: #3b82f6; border: 0; border-radius: 4px; }
 combobox button { padding: 8px; border-radius: 7px; }
+.ready { background: #10352a; color: #4ade80; border: 1px solid #1f6f57; border-radius: 8px; padding: 9px 12px; font-weight: 700; }
 """
 
 
@@ -124,6 +125,9 @@ class Window(Gtk.ApplicationWindow):
         status_row.pack_start(self.status, True, True, 0)
         status_row.pack_start(self.elapsed, False, False, 0)
         test.pack_start(status_row, False, False, 0)
+        self.ready = label("", "ready", True)
+        test.pack_start(self.ready, False, False, 0)
+        self.ready.hide()
         button_row = Gtk.Box(spacing=10)
         self.start_button = Gtk.Button(label="Comprobar capacidad")
         self.start_button.get_style_context().add_class("primary")
@@ -200,6 +204,7 @@ class Window(Gtk.ApplicationWindow):
             self.progress.set_fraction(0)
             self.status.set_text("Listo para comenzar" if item else "Conectá un pendrive")
             self.elapsed.set_text("")
+            self.ready.hide()
         self.start_button.set_sensitive(bool(item and item.get("size") and not self.busy))
         if not item:
             self.device_detail.set_text("Conectá un pendrive para comenzar. Solo aparecen discos USB.")
@@ -258,6 +263,7 @@ class Window(Gtk.ApplicationWindow):
         self.cancel_button.show()
         self.cancel_button.set_sensitive(True)
         self.status.set_text("Preparando la unidad y los permisos")
+        self.ready.hide()
 
     def prepare(self):
         try:
@@ -371,6 +377,7 @@ class Window(Gtk.ApplicationWindow):
         kind = event.get("type")
         if kind == "progress":
             step, name = PHASES[event["phase"]]
+            self.ready.hide()
             self.status.set_text(name)
             self.progress.set_fraction(min(0.99, (step + event["done"] / event["total"]) / 4))
             if event["phase"] == "restoring":
@@ -396,21 +403,29 @@ class Window(Gtk.ApplicationWindow):
                 self.description.set_text("Algunas muestras no coinciden. La unidad puede tener capacidad falsa o memoria dañada; no se puede estimar una capacidad útil confiable.")
             self.status.set_text(f'{event["passed"]}/{event["samples"]} muestras correctas · originales restaurados')
             self.elapsed.set_text(f'{event["elapsed"]:.1f} s')
+            self.show_ready()
         elif kind == "cancelled":
             self.title_label.set_text("Prueba cancelada")
             self.description.set_text("No se determinó la capacidad. Los bloques modificados, si los hubo, se restauraron.")
             self.status.set_text("Podés volver a intentarlo")
+            self.show_ready()
         elif kind == "recovered":
             self.title_label.set_text("Bloques originales recuperados")
             self.description.set_text("La restauración fue verificada. Ya podés iniciar una nueva comprobación.")
             self.progress.set_fraction(1)
             self.status.set_text("Recuperación terminada")
+            self.show_ready()
         elif kind == "recovery_needed":
             self.pending_recovery = True
         elif kind == "error":
             self.title_label.set_text("No se pudo completar la prueba")
             self.description.set_text(event["message"])
             self.status.set_text("Sin resultado de capacidad")
+            self.ready.hide()
+
+    def show_ready(self):
+        self.ready.set_text("✓  Dispositivo listo para desenchufar")
+        self.ready.show()
 
     def finish(self):
         if not self.terminal_event:

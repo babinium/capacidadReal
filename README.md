@@ -28,13 +28,15 @@ Requisitos: Linux con GTK 3 y Python 3.11 o posterior, UDisks2 y Polkit
 (`pkexec`), o `sudo` como alternativa. Se comprueba en Debian 13 amd64 y está
 pensado para Debian y derivados como Ubuntu.
 
-1. Descargá `capacidadreal_0.2.0_all.deb` desde Releases y abrilo con el
+1. Descargá `capacidadreal_0.2.1_all.deb` desde Releases y abrilo con el
    instalador de paquetes de tu escritorio.
-   Si tu escritorio no tiene uno: `sudo apt install ./capacidadreal_0.2.0_all.deb`.
+   Si tu escritorio no tiene uno: `sudo apt install ./capacidadreal_0.2.1_all.deb`.
 2. Abrí **capacidadReal** en el menú de aplicaciones.
 3. Seleccioná el pendrive y pulsá **Comprobar capacidad**.
 4. Autorizá el acceso de administrador cuando Linux lo solicite.
 5. Esperá el resultado y la restauración de los bloques antes de desconectarlo.
+   Al terminar, la aplicación muestra un aviso verde: **«Dispositivo listo para
+   desenchufar»**. Recién entonces podés retirarlo.
 
 La aplicación desmonta las particiones con UDisks y rechaza discos internos,
 particiones montadas, swap y dispositivos en uso. La unidad queda desmontada
@@ -109,4 +111,4 @@ Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
 Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
 
-Versión actual: **0.2.0**. Licencia MIT.
+Versión actual: **0.2.1**. Licencia MIT.
