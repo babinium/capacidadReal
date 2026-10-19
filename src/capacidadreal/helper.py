@@ -119,6 +119,7 @@ class Journal:
             if offset < 0 or offset % device.block or offset + device.block > device.size or len(data) != device.block:
                 raise ValueError("La copia de recuperación contiene bloques inválidos.")
             blocks[offset] = data
+        emit({"type": "progress", "phase": "restoring", "done": 0, "total": len(blocks)})
         for index, (offset, data) in enumerate(blocks.items()):
             # Old journals include every sample, even when only one write was
             # attempted. Avoid hundreds of unnecessary slow flash writes.
