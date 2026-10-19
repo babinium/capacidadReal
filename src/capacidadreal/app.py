@@ -12,12 +12,14 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, Gio, GLib, Gtk
 
 from capacidadreal.devices import descendants, human_size, inventory, serial_details, usable
+from capacidadreal.engine import GRID_SAMPLES, positions
 
 HELPER = "/usr/lib/capacidadreal/capacidadreal/helper.py"
 PHASES = {"saving": (0, "Guardando los bloques originales"),
           "writing": (1, "Escribiendo pequeñas muestras"),
           "checking": (2, "Comprobando las muestras"),
-          "restoring": (3, "Restaurando los datos originales")}
+          "restoring": (3, "Restaurando los datos originales"),
+          "verifying_restore": (4, "Verificando la restauración")}
 CSS = b"""
 window { background: #0f141b; color: #e6edf5; }
 .hero { background: #080c12; border-bottom: 1px solid #1f2935; padding: 20px 28px; }
@@ -61,8 +63,10 @@ class Window(Gtk.ApplicationWindow):
         self.busy = False
         self.worker = None
         self.devices = []
-        self.cells = ["pending"] * 576
+        self.cells = ["pending"] * GRID_SAMPLES
         self.started = None
+        self.last_progress = None
+        self.last_phase = None
         self.terminal_event = False
         self.refreshing = False
         self.active_item = None
@@ -168,10 +172,12 @@ class Window(Gtk.ApplicationWindow):
         width, height = widget.get_allocated_width(), widget.get_allocated_height()
         colors = {"pending": (0.15, 0.19, 0.24), "ok": (0.20, 0.83, 0.60),
                   "mismatch": (0.97, 0.44, 0.44), "error": (0.98, 0.75, 0.14)}
+        columns = 16
+        rows = max(1, (len(self.cells) + columns - 1) // columns)
         for i, value in enumerate(self.cells):
-            x, y = i % 48, i // 48
+            x, y = i % columns, i // columns
             cr.set_source_rgb(*colors.get(value, colors["pending"]))
-            cr.rectangle(x * width / 48, y * height / 12, max(1, width / 48 - 2), max(1, height / 12 - 2))
+            cr.rectangle(x * width / columns, y * height / rows, max(1, width / columns - 2), max(1, height / rows - 2))
             cr.fill()
 
     def refresh(self):
@@ -215,7 +221,7 @@ class Window(Gtk.ApplicationWindow):
             self.display_identity = identity
             self.title_label.set_text("Una prueba breve, un resultado claro")
             self.description.set_text("Se prueban pequeñas muestras a lo largo del espacio anunciado. Los bloques originales se guardan y se restauran al terminar.")
-            self.cells = ["pending"] * 576
+            self.cells = ["pending"] * GRID_SAMPLES
             self.grid.queue_draw()
             self.progress.set_fraction(0)
             self.status.set_text("Listo para comenzar" if item else "Conectá un pendrive")
@@ -248,9 +254,17 @@ class Window(Gtk.ApplicationWindow):
         return True
 
     def tick(self):
-        if self.busy and self.started:
+        if self.busy and self.started is not None and not self.terminal_event:
             seconds = int(time.monotonic() - self.started)
             self.elapsed.set_text(f"{seconds // 60:02d}:{seconds % 60:02d}")
+            if self.last_progress is not None:
+                waiting = int(time.monotonic() - self.last_progress)
+                if waiting >= 4:
+                    if self.cancel_requested or self.last_phase in ("restoring", "verifying_restore"):
+                        text = f"Restauración: esperando respuesta del dispositivo · {waiting} s"
+                    else:
+                        text = f"El dispositivo no termina la operación · {waiting} s de espera"
+                    self.status.set_text(text)
         return True
 
     def question(self, title, text, accept):
@@ -267,7 +281,8 @@ class Window(Gtk.ApplicationWindow):
         if not item:
             return
         if self.demo:
-            self.on_event({"type": "result", "status": "compatible", "announced": item["size"], "samples": 650, "passed": 650, "grid": ["ok"] * 576, "elapsed": 8.4})
+            samples = len(positions(item["size"])[0])
+            self.on_event({"type": "result", "status": "compatible", "announced": item["size"], "samples": samples, "passed": samples, "grid": ["ok"] * GRID_SAMPLES, "elapsed": 8.4})
             return
         if not self.question("Comprobar esta memoria", f'{item.get("model") or "Memoria"} · {human_size(item["size"])} · {item["name"]}\nSerie: {item.get("serial") or "No disponible"}\n\nSe cerrará el acceso a sus archivos durante la prueba. Se escribirán pequeñas muestras y luego se restaurarán los datos originales de esas zonas. Una interrupción o una falla de la memoria puede dañar datos: conservá una copia de lo importante.', "Comprobar"):
             return
@@ -278,10 +293,12 @@ class Window(Gtk.ApplicationWindow):
     def begin(self):
         self.busy = True
         self.started = time.monotonic()
+        self.last_progress = None
+        self.last_phase = None
         self.terminal_event = False
         self.cancel_requested = False
         self.pending_recovery = False
-        self.cells = ["pending"] * 576
+        self.cells = ["pending"] * GRID_SAMPLES
         self.grid.queue_draw()
         self.progress.set_fraction(0)
         self.title_label.set_text("Comprobando tu memoria…")
@@ -406,11 +423,18 @@ class Window(Gtk.ApplicationWindow):
         kind = event.get("type")
         if kind == "progress":
             step, name = PHASES[event["phase"]]
+            self.last_progress = time.monotonic()
+            self.last_phase = event["phase"]
             self.ready.hide()
-            self.status.set_text(name)
-            self.progress.set_fraction(min(0.99, (step + event["done"] / event["total"]) / 4))
-            if event["phase"] == "restoring":
+            self.status.set_text(f'{name} · {event["done"]}/{event["total"]}')
+            self.progress.set_fraction(min(0.99, (step + event["done"] / event["total"]) / len(PHASES)))
+            if event["phase"] in ("restoring", "verifying_restore"):
                 self.cancel_button.set_sensitive(False)
+            return
+        if kind == "slow_stopping":
+            self.title_label.set_text("Unidad demasiado lenta · restaurando")
+            self.description.set_text("Se detuvo la comprobación rápida. Mantené la unidad conectada hasta verificar los datos originales.")
+            self.cancel_button.set_sensitive(False)
             return
         self.terminal_event = True
         if kind == "result":
@@ -444,6 +468,14 @@ class Window(Gtk.ApplicationWindow):
             self.progress.set_fraction(1)
             self.status.set_text("Recuperación terminada")
             self.show_ready()
+        elif kind == "slow":
+            self.title_label.set_text("Unidad demasiado lenta para la prueba rápida")
+            self.description.set_text(event["message"])
+            self.status.set_text("Sin resultado de capacidad · originales restaurados")
+            if event.get("restored"):
+                self.show_ready()
+            else:
+                self.ready.hide()
         elif kind == "recovery_needed":
             self.pending_recovery = True
         elif kind == "error":

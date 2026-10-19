@@ -75,9 +75,10 @@ class EngineTests(unittest.TestCase):
         dev = MemoryDevice(size=2_000_000_000_000)
         result = run(dev, MemoryJournal())
         self.assertEqual(result["status"], "compatible")
-        self.assertLess(result["samples"], 800)
-        self.assertLess(dev.writes * dev.block, 7 * 1024 * 1024)
-        self.assertLess(dev.reads * dev.block, 10 * 1024 * 1024)
+        self.assertLess(result["samples"], 160)
+        self.assertEqual(len(result["grid"]), 64)
+        self.assertLess(sum(length for _, length in dev.write_spans), 2 * 1024 * 1024)
+        self.assertLess(dev.reads * dev.block, 2 * 1024 * 1024)
         self.assertTrue(dev.restored())
 
     def test_writes_are_ordered_and_coalesced_without_changing_coverage(self):
@@ -184,6 +185,71 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(dev.restored())
         self.assertTrue(journal.cleared)
 
+    def test_cancel_does_not_write_untouched_samples_during_restoration(self):
+        dev, journal = MemoryDevice(), MemoryJournal()
+        with self.assertRaises(Cancelled):
+            run(dev, journal, cancelled=lambda: dev.writes >= 1)
+        self.assertEqual(dev.writes, 2)  # attempted batch + same batch restored
+        self.assertTrue(dev.restored())
+        self.assertTrue(journal.cleared)
+
+    def test_slow_operation_stops_probing_and_restores_only_attempted_batch(self):
+        from capacidadreal.engine import SlowDevice
+        now = [0.0]
+        class SlowMemoryDevice(MemoryDevice):
+            def write(self, offset, data):
+                super().write(offset, data)
+                now[0] += 3
+        dev, journal, events = SlowMemoryDevice(), MemoryJournal(), []
+        with self.assertRaises(SlowDevice):
+            run(dev, journal, emit=events.append, clock=lambda: now[0])
+        self.assertEqual(dev.writes, 2)
+        self.assertTrue(dev.restored())
+        self.assertTrue(journal.cleared)
+        self.assertFalse(any(e["type"] == "result" for e in events))
+        self.assertTrue(any(e["type"] == "slow_stopping" for e in events))
+
+    def test_slow_read_before_writes_never_changes_device(self):
+        from capacidadreal.engine import SlowDevice
+        now = [0.0]
+        class SlowReadDevice(MemoryDevice):
+            def read(self, offset):
+                data = super().read(offset)
+                now[0] += 3
+                return data
+        dev, journal = SlowReadDevice(), MemoryJournal()
+        with self.assertRaises(SlowDevice):
+            run(dev, journal, clock=lambda: now[0])
+        self.assertEqual(dev.writes, 0)
+        self.assertFalse(journal.saved)
+
+    def test_slow_abort_with_failed_restoration_keeps_recovery_copy(self):
+        now = [0.0]
+        class SlowMemoryDevice(MemoryDevice):
+            def write(self, offset, data):
+                super().write(offset, data)
+                now[0] += 3
+        dev, journal = SlowMemoryDevice(), MemoryJournal()
+        dev.fail_restore = True
+        with self.assertRaisesRegex(OSError, "restauración"):
+            run(dev, journal, clock=lambda: now[0])
+        self.assertTrue(journal.saved)
+        self.assertFalse(journal.cleared)
+
+    def test_total_time_budget_stops_accumulation_of_small_delays(self):
+        from capacidadreal.engine import SlowDevice
+        now = [0.0]
+        class DelayedMemoryDevice(MemoryDevice):
+            def write(self, offset, data):
+                super().write(offset, data)
+                now[0] += 0.25
+        dev, journal = DelayedMemoryDevice(), MemoryJournal()
+        with self.assertRaises(SlowDevice):
+            run(dev, journal, clock=lambda: now[0], max_seconds=1)
+        self.assertEqual(dev.writes, 8)
+        self.assertTrue(dev.restored())
+        self.assertTrue(journal.cleared)
+
     def test_cancel_before_write_never_changes_device(self):
         dev, journal = MemoryDevice(), MemoryJournal()
         with self.assertRaises(Cancelled):
@@ -202,7 +268,7 @@ class EngineTests(unittest.TestCase):
     def test_sample_bounds_and_alignment(self):
         for size in (65536, 7_744_782_336, 2_000_000_000_000):
             probes, grid = positions(size)
-            self.assertLess(len(probes), 800)
+            self.assertLess(len(probes), 160)
             self.assertEqual(len(probes), len(set(probes)))
             self.assertTrue(all(p % 4096 == 0 and 0 <= p <= size - 4096 for p in probes))
             self.assertTrue(set(grid).issubset(probes))

@@ -15,7 +15,14 @@ class Cancelled(Exception):
     pass
 
 
+class SlowDevice(Exception):
+    pass
+
+
 MAX_WRITE_BYTES = 128 * 1024
+GRID_SAMPLES = 64
+MAX_SCAN_SECONDS = 15
+MAX_OPERATION_SECONDS = 2
 
 
 def write_batches(offsets, block):
@@ -31,7 +38,7 @@ def write_batches(offsets, block):
         yield batch
 
 
-def positions(size, block=4096, count=576):
+def positions(size, block=4096, count=GRID_SAMPLES):
     blocks = size // block
     if blocks < 16:
         raise ValueError("La unidad es demasiado pequeña para esta prueba.")
@@ -73,60 +80,84 @@ def summarize(size, block, grid, checks, aliases):
     return result
 
 
-def run(device, journal, emit=lambda event: None, cancelled=lambda: False):
-    start = time.monotonic()
+def run(device, journal, emit=lambda event: None, cancelled=lambda: False,
+        clock=time.monotonic, max_seconds=MAX_SCAN_SECONDS):
+    start = clock()
     offsets, grid = positions(device.size, device.block)
     nonce = os.urandom(32)
     originals = {}
     checks = {}
     aliases = []
-    dirty = False
+    attempted = []
     scan_error = None
     restoration_errors = []
 
     def progress(phase, index, total):
         emit({"type": "progress", "phase": phase, "done": index, "total": total})
 
-    # Failure/cancellation here cannot alter the device.
-    for i, offset in enumerate(offsets):
+    def check_time(operation_start=None):
         if cancelled():
             raise Cancelled()
+        now = clock()
+        if (now - start >= max_seconds or
+                (operation_start is not None and now - operation_start >= MAX_OPERATION_SECONDS)):
+            raise SlowDevice("La unidad responde demasiado lento para completar la prueba rápida. No se determinó su capacidad.")
+
+    # Failure/cancellation here cannot alter the device.
+    progress("saving", 0, len(offsets))
+    for i, offset in enumerate(offsets):
+        check_time()
+        operation_start = clock()
         originals[offset] = device.read(offset)
         progress("saving", i + 1, len(offsets))
+        check_time(operation_start)
     journal.save(originals)
     expected = {p: pattern(p, device.block, nonce) for p in offsets}
     reverse = {value: key for key, value in expected.items()}
     batches = list(write_batches(offsets, device.block))
     try:
         done = 0
+        progress("writing", 0, len(offsets))
         for batch in batches:
-            if cancelled():
-                raise Cancelled()
-            dirty = True  # Include partially failed writes in recovery.
+            check_time()
+            # Record BEFORE issuing I/O: partial writes also need recovery.
+            attempted.append(batch)
+            operation_start = clock()
             device.write(batch[0], b"".join(expected[p] for p in batch))
             done += len(batch)
             progress("writing", done, len(offsets))
+            check_time(operation_start)
+        operation_start = clock()
         device.flush()
+        check_time(operation_start)
         # All distinct patterns remain on the medium together, so aliases
         # still collide even though writes now follow ascending addresses.
         order = offsets.copy()
         random.SystemRandom().shuffle(order)
+        progress("checking", 0, len(offsets))
         for i, offset in enumerate(order):
-            if cancelled():
-                raise Cancelled()
+            check_time()
+            operation_start = clock()
             actual = device.read(offset)
             checks[offset] = "ok" if actual == expected[offset] else "mismatch"
             if actual != expected[offset] and actual in reverse:
                 aliases.append((offset, reverse[actual]))
             progress("checking", i + 1, len(offsets))
+            check_time(operation_start)
+    except SlowDevice as exc:
+        scan_error = exc
+        emit({"type": "slow_stopping", "message": str(exc)})
     except Exception as exc:
         scan_error = exc
     finally:
-        if dirty:
-            # Ignore cancellation during recovery. Every potentially touched
-            # address is restored, including addresses aliased by fake firmware.
+        if attempted:
+            # Ignore cancellation/time budget during recovery. Restore every
+            # attempted address, including partial writes. Aliases return the
+            # same original; verify ALL saved samples afterward as well.
             done = 0
-            for batch in batches:
+            restore_total = sum(len(batch) for batch in attempted)
+            progress("restoring", 0, restore_total)
+            for batch in attempted:
                 try:
                     device.write(batch[0], b"".join(originals[p] for p in batch))
                 except Exception:
@@ -138,12 +169,14 @@ def run(device, journal, emit=lambda event: None, cancelled=lambda: False):
                         except Exception:
                             restoration_errors.append(offset)
                 done += len(batch)
-                progress("restoring", done, len(offsets))
+                progress("restoring", done, restore_total)
             try:
                 device.flush()
-                for offset in offsets:
+                progress("verifying_restore", 0, len(offsets))
+                for i, offset in enumerate(offsets):
                     if device.read(offset) != originals[offset]:
                         restoration_errors.append(offset)
+                    progress("verifying_restore", i + 1, len(offsets))
             except Exception:
                 restoration_errors.append(-1)
         if not restoration_errors:
@@ -153,6 +186,6 @@ def run(device, journal, emit=lambda event: None, cancelled=lambda: False):
     if scan_error:
         raise scan_error
     result = summarize(device.size, device.block, grid, checks, aliases)
-    result.update(type="result", elapsed=round(time.monotonic() - start, 1), restored=True)
+    result.update(type="result", elapsed=round(clock() - start, 1), restored=True)
     emit(result)
     return result

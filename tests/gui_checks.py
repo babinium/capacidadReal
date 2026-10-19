@@ -40,8 +40,30 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     sd = dict(other, serial="0x1234abcd", serial_source="sd")
     window.set_devices([sd])
     assert "tarjeta SD" in window.serial_note.get_text()
+    # Waiting must be explicit; a partial/slow test is never a capacity result.
+    window.busy = True
+    window.started = 10
+    window.terminal_event = False
+    with patch("capacidadreal.app.time.monotonic", return_value=10):
+        window.on_event({"type": "progress", "phase": "writing", "done": 1, "total": 128})
+    with patch("capacidadreal.app.time.monotonic", return_value=16):
+        window.tick()
+    assert "6 s de espera" in window.status.get_text()
+    assert not window.ready.get_visible()
+    window.cancel_requested = True
+    with patch("capacidadreal.app.time.monotonic", return_value=17):
+        window.tick()
+    assert "Restauración" in window.status.get_text()
+    window.on_event({"type": "slow_stopping"})
+    assert not window.terminal_event
+    assert not window.ready.get_visible()
+    window.on_event({"type": "slow", "message": "No se determinó su capacidad.", "restored": True})
+    assert "demasiado lenta" in window.title_label.get_text()
+    assert window.ready.get_visible()
+    assert "compatible" not in window.title_label.get_text()
+    window.busy = False
     window.set_devices([])
     assert not window.start_button.get_sensitive()
     assert not window.copy_serial_button.get_sensitive()
     window.destroy()
-print("Interfaz: selección, resultado, serie copiable, serie SD, serie ausente y desconexión verificados.")
+print("Interfaz: selección, resultado, serie copiable, serie SD, serie ausente desconexión, espera y parada por lentitud verificados.")

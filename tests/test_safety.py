@@ -110,6 +110,20 @@ class SafetyTests(unittest.TestCase):
             self.assertTrue(dev.restored())
             self.assertFalse(journal.path.exists())
 
+    def test_legacy_recovery_skips_blocks_already_matching_originals(self):
+        dev = MemoryDevice()
+        with tempfile.TemporaryDirectory() as directory:
+            journal = Journal(device(), dev.block, Path(directory))
+            saved = {p: dev.read(p) for p in range(0, 16 * dev.block, dev.block)}
+            journal.save(saved)
+            dev.write(8192, bytes(dev.block))
+            dev.writes = 0
+            with patch("capacidadreal.helper.emit"):
+                journal.recover(dev)
+            self.assertEqual(dev.writes, 1)
+            self.assertTrue(dev.restored())
+            self.assertFalse(journal.path.exists())
+
     def test_bad_recovery_is_rejected_before_writes(self):
         dev = MemoryDevice()
         with tempfile.TemporaryDirectory() as directory:

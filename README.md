@@ -23,14 +23,20 @@ La prioridad del proyecto es **una única función: comprobar rápidamente la
 capacidad por muestreo, desde una interfaz gráfica**.
 
 El programa prueba pequeñas zonas repartidas por toda la capacidad anunciada.
-En memorias habituales, esas zonas suman aproximadamente **2–3 MB**. No llena
-el pendrive ni lee todos sus gigabytes. El tiempo real depende de la velocidad
-y del estado de la memoria; todavía no publicamos tiempos medidos en hardware.
+Desde la versión 0.2.4 usa 64 posiciones distribuidas y pares adicionales para
+buscar direcciones que reutilizan memoria. En una unidad de unos 16 GB son
+128 muestras, alrededor de **medio megabyte**, frente a las 640 anteriores.
+Esta reducción prioriza la rapidez y ofrece menor cobertura de fallos puntuales.
 
-Desde la versión 0.2.3, las escrituras siguen un orden y agrupan zonas contiguas
-para reducir operaciones en pendrives. Se comprueban las mismas muestras y se
-verifica la restauración. Esto no elimina las esperas de una memoria que deja
-de responder; la mejora de tiempo depende del dispositivo.
+Las escrituras siguen un orden y agrupan zonas contiguas. Si una operación
+completada tarda 2 segundos o la comprobación acumula 15 segundos, deja de
+probar y restaura las zonas que pudo modificar. La restauración se verifica
+aunque requiera más tiempo. Una prueba detenida no informa capacidad compatible.
+
+**Estos límites no son un plazo máximo garantizado:** Linux puede mantener una
+operación esperando al pendrive. La aplicación muestra la espera, y solicita
+la parada cuando esa operación termina. No puede convertir una unidad que deja
+de responder en una prueba rápida. Aún no se ha medido la mejora en hardware.
 
 ### ¿Qué significa «restaurar los datos»?
 
@@ -48,8 +54,8 @@ que el programa restaura correctamente lo que modifica; ese archivo no es tu USB
 
 ## Descargar e instalar
 
-**[Descargar el instalador .deb 0.2.3](https://github.com/babinium/capacidadReal/releases/download/v0.2.3/capacidadreal_0.2.3_all.deb)**
-· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.3)
+**[Descargar el instalador .deb 0.2.4](https://github.com/babinium/capacidadReal/releases/download/v0.2.4/capacidadreal_0.2.4_all.deb)**
+· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.4)
 
 Probado en **Debian 13 con entorno gráfico**. Otras distribuciones basadas en
 Debian pueden funcionar si tienen las dependencias necesarias; no se han verificado.
@@ -65,7 +71,7 @@ Si tu escritorio no tiene instalador gráfico, abrí una terminal en la carpeta
 donde descargaste el archivo y ejecutá:
 
 ```bash
-sudo apt install ./capacidadreal_0.2.3_all.deb
+sudo apt install ./capacidadreal_0.2.4_all.deb
 ```
 
 La aplicación cierra el acceso a los archivos de la memoria durante la prueba.

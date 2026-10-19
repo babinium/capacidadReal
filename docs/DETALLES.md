@@ -2,37 +2,50 @@
 
 ## Qué comprueba y qué significa el resultado
 
-Se prueban 576 posiciones distribuidas por el espacio anunciado, más pares de
-direcciones separados por potencias de dos para descubrir controladores que
-reutilizan la misma memoria. Son aproximadamente 600–750 bloques de 4 KiB en
-unidades habituales. El volumen de datos probado es pequeño y acotado; la
-duración depende especialmente de la latencia y del estado del USB. No se promete
-un tiempo máximo: el kernel puede esperar a un dispositivo que falla.
+Se prueban 64 posiciones distribuidas por el espacio anunciado, más pares de
+direcciones separados por potencias de dos con anclas 0, 1 y 7 para descubrir
+controladores que reutilizan memoria. Son 128 muestras de 4 KiB en la geometría
+de 15.728.640.000 bytes y 149 en la simulación de 2 TB. La rejilla de la interfaz
+muestra únicamente las posiciones distribuidas. La reducción frente a 576
+posiciones más anclas prioriza la rapidez; reduce la cobertura de defectos
+localizados y la precisión del intervalo observado en una transición.
 
 Todos los originales se leen y se guardan antes de escribir. Después se escriben
-patrones distintos en orden ascendente, se sincroniza y se leen en orden aleatorio. Se utiliza E/S directa
-y se invalida la caché del kernel. Finalmente se restauran y se vuelven a leer los
-originales. La salida solo indica restauración correcta si esa lectura coincide.
+patrones distintos en orden ascendente, se sincroniza y se leen en orden aleatorio.
+Se utiliza E/S directa y se invalida la caché del kernel. Finalmente se restauran
+las direcciones cuya escritura se intentó, incluidas las escrituras parciales,
+y se vuelven a leer **todas** las muestras originales guardadas. No se escriben
+muestras aún no intentadas al cancelar. Las direcciones que se repiten en el
+modelo de fraude modular comparten el mismo original; también se verifican
+las muestras que puedan coincidir con ellas.
 
-## Optimización de escrituras para pendrives (0.2.3)
+## Rapidez y unidades que no responden (0.2.4)
 
-Se conservan las mismas posiciones y patrones independientes. Las escrituras
-avanzan en orden de dirección, evitando los saltos aleatorios de la versión
-anterior. Solo las muestras estrictamente contiguas se agrupan en un comando,
-hasta 128 KiB; nunca se escriben los huecos entre muestras. La restauración usa
-el mismo agrupamiento. Si falla un grupo durante la restauración, se reintenta
-cada bloque por separado y se conserva la copia si no se confirma la recuperación.
+Se agrupan solo muestras estrictamente contiguas, hasta 128 KiB; nunca se
+escriben los huecos entre muestras. En la geometría de 15.728.640.000 bytes,
+las escrituras de prueba más restauración pasan de 1228 (0.2.3) a 204 si la
+prueba termina normalmente. Se informa el número de comandos calculado,
+no una aceleración en segundos: aún no hay una medición comparativa en hardware.
 
-En la geometría de 15.728.640.000 bytes se mantienen 640 muestras. Las escrituras
-de prueba más restauración pasan de 1280 a 1228 comandos (aproximadamente 4 %
-menos). El cambio principal es el orden de acceso: no se afirma una aceleración
-en segundos sin medirla en hardware. Los reinicios y tiempos de espera del
-controlador USB pueden seguir dominando la duración.
+El motor deja de probar al observar una operación de al menos 2 segundos o
+15 segundos acumulados en la comprobación. Ese presupuesto se controla antes y
+después de las operaciones; **no interrumpe una llamada bloqueada en el kernel**.
+Los bloqueos o reinicios del controlador USB pueden prolongar tanto la prueba
+como la recuperación. La interfaz muestra explícitamente cuándo se espera una
+respuesta y cuántas muestras completó cada fase.
+
+La restauración queda fuera del presupuesto de tiempo: restaura solo los lotes
+intentados y verifica todos los originales guardados. Si falla un lote, se
+reintenta cada bloque por separado; la copia se conserva si no se confirma la
+recuperación. Una parada por lentitud entrega un estado sin capacidad determinada,
+y solo habilita el aviso para retirar cuando la restauración fue verificada
+o cuando no llegó a escribir. La recuperación acepta las copias de versiones
+anteriores: lee cada original guardado y solo lo reescribe si difiere, para no
+repetir cientos de escrituras innecesarias en una unidad lenta.
 
 Todas las muestras quedan escritas simultáneamente antes de verificarlas para
 seguir detectando direcciones que reutilizan la misma memoria. Se mantienen
-la sincronización, E/S directa, lectura posterior de originales y recuperación
-de copias creadas por versiones anteriores.
+la sincronización, E/S directa y la lectura posterior de originales.
 
 ## Resultados
 
@@ -88,4 +101,4 @@ Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
 Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
 
-Versión inicial: **0.2.3**. Licencia MIT.
+Versión inicial: **0.2.4**. Licencia MIT.

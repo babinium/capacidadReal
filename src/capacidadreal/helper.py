@@ -16,7 +16,7 @@ import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from capacidadreal.devices import inventory, validate
-from capacidadreal.engine import Cancelled, MAX_WRITE_BYTES, run
+from capacidadreal.engine import Cancelled, SlowDevice, MAX_WRITE_BYTES, run
 
 STOP = threading.Event()
 
@@ -120,11 +120,16 @@ class Journal:
                 raise ValueError("La copia de recuperación contiene bloques inválidos.")
             blocks[offset] = data
         for index, (offset, data) in enumerate(blocks.items()):
-            device.write(offset, data)
+            # Old journals include every sample, even when only one write was
+            # attempted. Avoid hundreds of unnecessary slow flash writes.
+            if device.read(offset) != data:
+                device.write(offset, data)
             emit({"type": "progress", "phase": "restoring", "done": index + 1, "total": len(blocks)})
         device.flush()
-        if any(device.read(p) != b for p, b in blocks.items()):
-            raise OSError("No se pudo verificar la restauración. La copia se conserva.")
+        for index, (offset, data) in enumerate(blocks.items()):
+            if device.read(offset) != data:
+                raise OSError("No se pudo verificar la restauración. La copia se conserva.")
+            emit({"type": "progress", "phase": "verifying_restore", "done": index + 1, "total": len(blocks)})
         self.clear()
 
 
@@ -168,6 +173,10 @@ def main():
         return 0
     except Cancelled:
         emit({"type": "cancelled", "restored": True})
+        return 0
+    except SlowDevice as exc:
+        # run raises only AFTER restoration is verified, or before any write.
+        emit({"type": "slow", "message": str(exc), "restored": True})
         return 0
     except Exception as exc:
         emit({"type": "error", "message": str(exc)})
