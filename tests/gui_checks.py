@@ -11,6 +11,8 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     window = Window(app, demo=True)
     assert Gtk.Settings.get_default().get_property("gtk-application-prefer-dark-theme")
     assert window.start_button.get_sensitive()
+    assert not window.copy_result_button.get_sensitive()
+    assert window.result_report == ""
     assert not window.ready.get_visible()
     assert window.serial_label.get_text() == "Número de serie: DEMO"
     assert window.serial_label.get_selectable()
@@ -22,9 +24,22 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     assert "compatible" in window.title_label.get_text()
     assert window.ready.get_visible()
     assert "desenchufar" in window.ready.get_text()
+    assert window.copy_result_button.get_sensitive()
+    report = window.result_report
+    for value in ("Modelo: Pendrive de ejemplo", "Número de serie: DEMO",
+                  "Capacidad anunciada: 32.00 GB", "capacidad compatible", "Duración: 8.4 s",
+                  "Demostración: dispositivo ficticio", "Prueba por muestreo"):
+        assert value in report
+    # Copy a frozen result, even after the source dictionary and clock change.
+    window.active_item["serial"] = "CHANGED_AFTER_TEST"
+    with patch("capacidadreal.app.Gtk.Clipboard.get") as clipboard:
+        window.copy_result()
+        clipboard.return_value.set_text.assert_called_once_with(report, -1)
+        clipboard.return_value.store.assert_called_once()
     # Refreshing the same drive preserves the result.
     window.set_devices(list(window.devices))
     assert "compatible" in window.title_label.get_text()
+    assert window.result_report == report
     # Selecting another drive must never display the previous drive's result.
     other = dict(window.devices[0], name="/dev/demo2", serial="OTHER", size=8_000_000_000)
     window.set_devices([other])
@@ -33,6 +48,8 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     assert all(c == "pending" for c in window.cells)
     assert window.progress.get_fraction() == 0
     assert window.serial_label.get_text() == "Número de serie: OTHER"
+    assert window.result_report == ""
+    assert not window.copy_result_button.get_sensitive()
     missing = dict(other, serial=None)
     window.set_devices([missing])
     assert "No disponible" in window.serial_label.get_text()
@@ -40,6 +57,24 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     sd = dict(other, serial="0x1234abcd", serial_source="sd")
     window.set_devices([sd])
     assert "tarjeta SD" in window.serial_note.get_text()
+    # Report the completed test's device, including an estimated fake capacity.
+    window.active_item = dict(sd)
+    window.begin()
+    assert not window.copy_result_button.get_sensitive()
+    window.on_event({"type": "result", "status": "aliased", "announced": sd["size"],
+                     "estimated": 4_000_000_000, "samples": 128, "passed": 64,
+                     "grid": ["mismatch"] * 64, "elapsed": 12.6, "restored": True})
+    assert "Número de serie: 0x1234abcd" in window.result_report
+    assert "de la tarjeta SD" in window.result_report
+    assert "Capacidad anunciada: 8.00 GB" in window.result_report
+    assert "Capacidad falsa detectada" in window.result_report
+    assert "4.00 GB" in window.result_report
+    assert "Duración: 12.6 s" in window.result_report
+    assert "Restauración de las zonas probadas: confirmada" in window.result_report
+    # A new test clears the prior report before any I/O or permission request.
+    window.begin()
+    assert window.result_report == ""
+    assert not window.copy_result_button.get_sensitive()
     # A slow response keeps the test active until completion or user cancellation.
     window.busy = True
     window.started = 10
@@ -69,12 +104,24 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
     with patch("capacidadreal.app.time.monotonic", return_value=17):
         window.tick()
     assert "Restauración" in window.status.get_text()
-    window.on_event({"type": "cancelled", "restored": True})
+    with patch("capacidadreal.app.time.monotonic", return_value=17):
+        window.on_event({"type": "cancelled", "restored": True})
+    assert "Resultado: Prueba cancelada" in window.result_report
+    assert "Duración: 7.0 s" in window.result_report
+    assert window.copy_result_button.get_sensitive()
     assert window.ready.get_visible()
+    # Failed recovery must not copy an old success or claim verified originals.
+    window.begin()
+    window.on_event({"type": "error", "message": "No se pudo confirmar la restauración."})
+    assert "No se pudo confirmar la restauración." in window.result_report
+    assert "Prueba cancelada" not in window.result_report
+    assert "Restauración de las zonas probadas: confirmada" not in window.result_report
+    assert not window.ready.get_visible()
     assert "compatible" not in window.title_label.get_text()
     window.busy = False
     window.set_devices([])
     assert not window.start_button.get_sensitive()
     assert not window.copy_serial_button.get_sensitive()
+    assert not window.copy_result_button.get_sensitive()
     window.destroy()
-print("Interfaz: selección, resultado, serie copiable, serie SD, serie ausente desconexión, espera sin corte automático y cancelación verificados.")
+print("Interfaz: selección, resultado, serie copiable, serie SD, serie ausente desconexión, espera sin corte automático, cancelación e informe copiable con identidad y duración verificados.")

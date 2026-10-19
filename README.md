@@ -55,8 +55,8 @@ que el programa restaura correctamente lo que modifica; ese archivo no es tu USB
 
 ## Descargar e instalar
 
-**[Descargar el instalador .deb 0.2.6](https://github.com/babinium/capacidadReal/releases/download/v0.2.6/capacidadreal_0.2.6_all.deb)**
-· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.6)
+**[Descargar el instalador .deb 0.2.7](https://github.com/babinium/capacidadReal/releases/download/v0.2.7/capacidadreal_0.2.7_all.deb)**
+· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.7)
 
 Probado en **Debian 13 con entorno gráfico**. Otras distribuciones basadas en
 Debian pueden funcionar si tienen las dependencias necesarias; no se han verificado.
@@ -72,7 +72,7 @@ Si tu escritorio no tiene instalador gráfico, abrí una terminal en la carpeta
 donde descargaste el archivo y ejecutá:
 
 ```bash
-sudo apt install ./capacidadreal_0.2.6_all.deb
+sudo apt install ./capacidadreal_0.2.7_all.deb
 ```
 
 La aplicación cierra el acceso a los archivos de la memoria durante la prueba.
@@ -89,6 +89,18 @@ Al terminar, podés volver a abrirla desde tu administrador de archivos.
 
 El botón **Copiar** copia únicamente el número de serie. Este dato ayuda a
 identificar la unidad, pero por sí solo no demuestra que sea original.
+
+## Versión visible y resultado copiable
+
+La versión instalada aparece en la parte superior de la ventana, junto al nombre
+del programa. Al terminar una comprobación se habilita **Copiar resultado**:
+copia un informe de texto con versión, modelo, número de serie, capacidad
+anunciada en GB, resultado y duración. Incluye la capacidad estimada cuando
+corresponde y aclara que se trata de una prueba por muestreo.
+
+También podés copiar el informe de una cancelación o un error. Al elegir otra
+memoria o iniciar otra prueba se limpia el informe anterior para evitar
+confusiones. Los datos quedan en el portapapeles para pegarlos donde elijas.
 
 ## Cómo interpretar el resultado
 

@@ -6,9 +6,9 @@ python3 -m compileall -q src
 python3 -m unittest discover -s tests -v 2>&1 | tee artifacts/pruebas.txt
 xvfb-run -a dbus-run-session -- python3 tests/gui_checks.py 2>&1 | tee artifacts/pruebas-interfaz.txt
 bash packaging/build-deb.sh
-dpkg-deb --info artifacts/capacidadreal_0.2.6_all.deb > artifacts/paquete.txt
-dpkg-deb --contents artifacts/capacidadreal_0.2.6_all.deb >> artifacts/paquete.txt
-dpkg -i artifacts/capacidadreal_0.2.6_all.deb
+dpkg-deb --info artifacts/capacidadreal_0.2.7_all.deb > artifacts/paquete.txt
+dpkg-deb --contents artifacts/capacidadreal_0.2.7_all.deb >> artifacts/paquete.txt
+dpkg -i artifacts/capacidadreal_0.2.7_all.deb
 desktop-file-validate /usr/share/applications/io.github.babinium.capacidadReal.desktop
 unset PYTHONPATH
 xvfb-run -a dbus-run-session -- capacidadreal --screenshot "$PWD/artifacts/interfaz.png"

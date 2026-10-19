@@ -11,6 +11,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, Gio, GLib, Gtk
 
+from capacidadreal import __version__
 from capacidadreal.devices import descendants, human_size, inventory, serial_details, usable
 from capacidadreal.engine import GRID_SAMPLES, positions
 
@@ -70,6 +71,7 @@ class Window(Gtk.ApplicationWindow):
         self.terminal_event = False
         self.refreshing = False
         self.active_item = None
+        self.result_report = ""
         self.cancel_requested = False
         self.pending_recovery = False
         self.using_sudo = False
@@ -86,7 +88,11 @@ class Window(Gtk.ApplicationWindow):
         self.add(outer)
         hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
         hero.get_style_context().add_class("hero")
-        hero.pack_start(label("capacidadReal", "brand"), False, False, 0)
+        heading = Gtk.Box(spacing=12)
+        heading.pack_start(label("capacidadReal", "brand"), True, True, 0)
+        self.version_label = label(f"Versión {__version__}", "muted")
+        heading.pack_end(self.version_label, False, False, 0)
+        hero.pack_start(heading, False, False, 0)
         hero.pack_start(label("Comprobá rápido si tu pendrive o SD tiene el espacio que promete.", "hero-subtitle"), False, False, 0)
         outer.pack_start(hero, False, False, 0)
 
@@ -154,6 +160,12 @@ class Window(Gtk.ApplicationWindow):
         self.start_button.connect("clicked", self.start_clicked)
         self.start_button.set_sensitive(False)
         button_row.pack_start(self.start_button, True, True, 0)
+        self.copy_result_button = Gtk.Button(label="Copiar resultado")
+        self.copy_result_button.get_style_context().add_class("secondary")
+        self.copy_result_button.set_tooltip_text("Copiar modelo, serie, capacidad, resultado y duración")
+        self.copy_result_button.set_sensitive(False)
+        self.copy_result_button.connect("clicked", self.copy_result)
+        button_row.pack_start(self.copy_result_button, False, False, 0)
         self.cancel_button = Gtk.Button(label="Cancelar")
         self.cancel_button.get_style_context().add_class("secondary")
         self.cancel_button.connect("clicked", self.cancel)
@@ -219,6 +231,7 @@ class Window(Gtk.ApplicationWindow):
         identity = (item["name"], item.get("serial"), item.get("size")) if item else None
         if not self.busy and identity != self.display_identity:
             self.display_identity = identity
+            self.clear_report()
             self.title_label.set_text("Una prueba breve, un resultado claro")
             self.description.set_text("Se prueban pequeñas muestras a lo largo del espacio anunciado. Los bloques originales se guardan y se restauran al terminar.")
             self.cells = ["pending"] * GRID_SAMPLES
@@ -248,6 +261,48 @@ class Window(Gtk.ApplicationWindow):
                 clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
                 clipboard.set_text(serial, -1)
                 clipboard.store()
+
+    def clear_report(self):
+        self.result_report = ""
+        self.copy_result_button.set_sensitive(False)
+
+    def save_report(self, event):
+        # Freeze the tested device and terminal result, never the live selection
+        # or the running timer when the user later presses Copy.
+        item = self.active_item
+        if item is None:
+            return
+        serial, note, _ = serial_details(item)
+        model = " ".join((item.get("model") or "Memoria").split())
+        duration = event.get("elapsed")
+        if duration is None and self.started is not None:
+            duration = max(0, time.monotonic() - self.started)
+        elapsed = f"{duration:.1f} s" if duration is not None else "No disponible"
+        lines = [f"capacidadReal {__version__}"]
+        if self.demo:
+            lines.append("Demostración: dispositivo ficticio")
+        lines.extend([
+            f"Modelo: {model}",
+            f'Número de serie: {" ".join(serial.split())}',
+            f"Serie: {note}",
+            f'Capacidad anunciada: {int(item.get("size") or 0) / 1_000_000_000:.2f} GB',
+            f"Resultado: {self.title_label.get_text()}",
+            self.description.get_text(),
+            f"Duración: {elapsed}",
+        ])
+        if event.get("type") == "result":
+            lines.append(f'Muestras correctas: {event["passed"]}/{event["samples"]}')
+        if event.get("restored") or event.get("type") == "recovered":
+            lines.append("Restauración de las zonas probadas: confirmada")
+        lines.append("Prueba por muestreo: no certifica todos los sectores.")
+        self.result_report = "\n".join(lines)
+        self.copy_result_button.set_sensitive(True)
+
+    def copy_result(self, *_):
+        if self.result_report:
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.set_text(self.result_report, -1)
+            clipboard.store()
 
     def periodic_refresh(self):
         self.refresh()
@@ -281,6 +336,7 @@ class Window(Gtk.ApplicationWindow):
         if not item:
             return
         if self.demo:
+            self.active_item = dict(item)
             samples = len(positions(item["size"])[0])
             self.on_event({"type": "result", "status": "compatible", "announced": item["size"], "samples": samples, "passed": samples, "grid": ["ok"] * GRID_SAMPLES, "elapsed": 8.4})
             return
@@ -291,6 +347,7 @@ class Window(Gtk.ApplicationWindow):
         threading.Thread(target=self.prepare, daemon=True).start()
 
     def begin(self):
+        self.clear_report()
         self.busy = True
         self.started = time.monotonic()
         self.last_progress = None
@@ -470,6 +527,8 @@ class Window(Gtk.ApplicationWindow):
             self.description.set_text(event["message"])
             self.status.set_text("Sin resultado de capacidad")
             self.ready.hide()
+        if kind in ("result", "cancelled", "recovered", "error"):
+            self.save_report(event)
 
     def show_ready(self):
         self.ready.set_text("✓  Dispositivo listo para desenchufar")
