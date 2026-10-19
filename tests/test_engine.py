@@ -1,7 +1,7 @@
 import hashlib
 import unittest
 
-from capacidadreal.engine import Cancelled, positions, run
+from capacidadreal.engine import Cancelled, pattern, positions, run
 
 
 class MemoryDevice:
@@ -65,6 +65,13 @@ class MemoryJournal:
 
 
 class EngineTests(unittest.TestCase):
+    def test_patterns_are_distinct_and_not_repeated_short_chunks(self):
+        data = pattern(0, 4096, b"test nonce")
+        self.assertEqual(len(data), 4096)
+        self.assertEqual(len({data[i:i + 64] for i in range(0, 4096, 64)}), 64)
+        self.assertNotEqual(data, pattern(4096, 4096, b"test nonce"))
+        self.assertNotEqual(data, pattern(0, 4096, b"different nonce"))
+
     def test_honest_and_restore(self):
         dev, journal = MemoryDevice(), MemoryJournal()
         result = run(dev, journal)

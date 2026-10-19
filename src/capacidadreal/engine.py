@@ -33,8 +33,8 @@ def positions(size, block=4096, count=576):
 
 
 def pattern(offset, block, nonce):
-    digest = hashlib.blake2b(nonce + offset.to_bytes(8, "big")).digest()
-    return (digest * ((block + 63) // 64))[:block]
+    # Full-length pseudorandom data avoids trivially compressible repetition.
+    return hashlib.shake_256(nonce + offset.to_bytes(8, "big")).digest(block)
 
 
 def summarize(size, block, grid, checks, aliases):
