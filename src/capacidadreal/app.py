@@ -31,7 +31,9 @@ window { background: #0f141b; color: #e6edf5; }
 .muted { color: #93a4b8; font-size: 12px; }
 .body { font-size: 13px; }
 .primary { background: #3b82f6; color: #ffffff; border: 0; border-radius: 8px; padding: 11px 20px; font-weight: 700; }
+.primary label { color: #ffffff; }
 .primary:disabled { background: #27313f; color: #6f7f92; }
+.primary:disabled label { color: #6f7f92; }
 .secondary { background: #232e3b; color: #dbe5f0; border: 1px solid #33404f; border-radius: 8px; padding: 9px 13px; }
 .success { color: #34d399; }
 .warning { color: #fbbf24; }
