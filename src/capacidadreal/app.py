@@ -11,7 +11,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, Gio, GLib, Gtk
 
-from capacidadreal.devices import descendants, human_size, inventory, usable
+from capacidadreal.devices import descendants, human_size, inventory, serial_details, usable
 
 HELPER = "/usr/lib/capacidadreal/capacidadreal/helper.py"
 PHASES = {"saving": (0, "Guardando los bloques originales"),
@@ -20,12 +20,12 @@ PHASES = {"saving": (0, "Guardando los bloques originales"),
           "restoring": (3, "Restaurando los datos originales")}
 CSS = b"""
 window { background: #0f141b; color: #e6edf5; }
-.hero { background: #080c12; border-bottom: 1px solid #1f2935; padding: 24px 28px; }
+.hero { background: #080c12; border-bottom: 1px solid #1f2935; padding: 20px 28px; }
 .hero label { color: #f4f8fd; }
 .brand { font-size: 26px; font-weight: 800; }
 .hero-subtitle { color: #9fb0c3; font-size: 13px; }
 .content { padding: 22px 28px; }
-.card { background: #161e29; border: 1px solid #27313f; border-radius: 12px; padding: 20px; }
+.card { background: #161e29; border: 1px solid #27313f; border-radius: 12px; padding: 16px; }
 .section { font-size: 11px; font-weight: 700; color: #8ea1b6; }
 .headline { font-size: 23px; font-weight: 700; }
 .muted { color: #93a4b8; font-size: 12px; }
@@ -83,15 +83,15 @@ class Window(Gtk.ApplicationWindow):
         hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
         hero.get_style_context().add_class("hero")
         hero.pack_start(label("capacidadReal", "brand"), False, False, 0)
-        hero.pack_start(label("Comprobá si tu pendrive tiene el espacio que promete.", "hero-subtitle"), False, False, 0)
+        hero.pack_start(label("Comprobá rápido si tu pendrive o SD tiene el espacio que promete.", "hero-subtitle"), False, False, 0)
         outer.pack_start(hero, False, False, 0)
 
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content.get_style_context().add_class("content")
         outer.pack_start(content, True, True, 0)
         select = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         select.get_style_context().add_class("card")
-        select.pack_start(label("1  ·  ELEGÍ TU PENDRIVE", "section"), False, False, 0)
+        select.pack_start(label("1  ·  ELEGÍ TU PENDRIVE O TARJETA SD", "section"), False, False, 0)
         row = Gtk.Box(spacing=10)
         self.combo = Gtk.ComboBoxText()
         self.combo.connect("changed", self.selection_changed)
@@ -103,6 +103,21 @@ class Window(Gtk.ApplicationWindow):
         select.pack_start(row, False, False, 0)
         self.device_detail = label("Buscando unidades USB…", "muted", True)
         select.pack_start(self.device_detail, False, False, 0)
+        serial_row = Gtk.Box(spacing=10)
+        self.serial_label = label("Número de serie: —", "body", True)
+        self.serial_label.set_selectable(True)
+        self.serial_label.set_max_width_chars(60)
+        serial_row.pack_start(self.serial_label, True, True, 0)
+        self.copy_serial_button = Gtk.Button(label="Copiar")
+        self.copy_serial_button.get_style_context().add_class("secondary")
+        self.copy_serial_button.set_tooltip_text("Copiar el número de serie")
+        self.copy_serial_button.connect("clicked", self.copy_serial)
+        self.copy_serial_button.set_sensitive(False)
+        serial_row.pack_start(self.copy_serial_button, False, False, 0)
+        select.pack_start(serial_row, False, False, 0)
+        self.serial_note = label("", "muted", True)
+        self.serial_note.set_max_width_chars(82)
+        select.pack_start(self.serial_note, False, False, 0)
         content.pack_start(select, False, False, 0)
 
         test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -114,7 +129,7 @@ class Window(Gtk.ApplicationWindow):
         self.description.set_max_width_chars(75)
         test.pack_start(self.description, False, False, 0)
         self.grid = Gtk.DrawingArea()
-        self.grid.set_size_request(-1, 96)
+        self.grid.set_size_request(-1, 72)
         self.grid.connect("draw", self.draw_grid)
         test.pack_start(self.grid, False, False, 0)
         self.progress = Gtk.ProgressBar()
@@ -126,6 +141,7 @@ class Window(Gtk.ApplicationWindow):
         status_row.pack_start(self.elapsed, False, False, 0)
         test.pack_start(status_row, False, False, 0)
         self.ready = label("", "ready", True)
+        self.ready.set_no_show_all(True)
         test.pack_start(self.ready, False, False, 0)
         self.ready.hide()
         button_row = Gtk.Box(spacing=10)
@@ -206,13 +222,26 @@ class Window(Gtk.ApplicationWindow):
             self.elapsed.set_text("")
             self.ready.hide()
         self.start_button.set_sensitive(bool(item and item.get("size") and not self.busy))
+        serial, note, available = serial_details(item or {})
+        self.serial_label.set_text("Número de serie: " + (serial if item else "—"))
+        self.serial_note.set_text(note if item else "")
+        self.copy_serial_button.set_sensitive(bool(item and available))
         if not item:
-            self.device_detail.set_text("Conectá un pendrive para comenzar. Solo aparecen discos USB.")
+            self.device_detail.set_text("Conectá un pendrive o una tarjeta SD extraíble para comenzar.")
         else:
             size = int(item.get("size") or 0)
-            self.device_detail.set_text(f'{item["name"]}  ·  {size / 2**30:.2f} GiB anunciados  ·  Serie: {item.get("serial") or "no disponible"}')
+            self.device_detail.set_text(f'{item["name"]}  ·  {size / 2**30:.2f} GiB anunciados')
             if not size:
                 self.device_detail.set_text("El USB informa 0 bytes. Reconectalo o comprobá la tarjeta del lector.")
+
+    def copy_serial(self, *_):
+        item = next((d for d in self.devices if d["name"] == self.combo.get_active_id()), None)
+        if item:
+            serial, _, available = serial_details(item)
+            if available:
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text(serial, -1)
+                clipboard.store()
 
     def periodic_refresh(self):
         self.refresh()
@@ -240,7 +269,7 @@ class Window(Gtk.ApplicationWindow):
         if self.demo:
             self.on_event({"type": "result", "status": "compatible", "announced": item["size"], "samples": 650, "passed": 650, "grid": ["ok"] * 576, "elapsed": 8.4})
             return
-        if not self.question("Comprobar este pendrive", f'{item.get("model") or "USB"} · {human_size(item["size"])} · {item["name"]}\n\nSe cerrará el acceso a sus archivos durante la prueba. Se escribirán muestras y luego se restaurarán los bloques originales. Una interrupción o una falla del USB puede dañar datos: conservá una copia de lo importante.', "Comprobar"):
+        if not self.question("Comprobar esta memoria", f'{item.get("model") or "Memoria"} · {human_size(item["size"])} · {item["name"]}\nSerie: {item.get("serial") or "No disponible"}\n\nSe cerrará el acceso a sus archivos durante la prueba. Se escribirán pequeñas muestras y luego se restaurarán los datos originales de esas zonas. Una interrupción o una falla de la memoria puede dañar datos: conservá una copia de lo importante.', "Comprobar"):
             return
         self.active_item = dict(item)
         self.begin()
@@ -255,7 +284,7 @@ class Window(Gtk.ApplicationWindow):
         self.cells = ["pending"] * 576
         self.grid.queue_draw()
         self.progress.set_fraction(0)
-        self.title_label.set_text("Comprobando tu pendrive…")
+        self.title_label.set_text("Comprobando tu memoria…")
         self.description.set_text("Mantenelo conectado hasta que termine la restauración de los datos.")
         self.start_button.set_sensitive(False)
         self.combo.set_sensitive(False)

@@ -1,114 +1,115 @@
 # capacidadReal
 
-**capacidadReal detecta memorias USB y tarjetas que anuncian más capacidad de la
-que realmente tienen.** Es una aplicación gráfica liviana, en español, para Linux,
-con interfaz oscura.
+**Comprobá rápido si tu pendrive o tarjeta SD tiene el espacio que promete.**
 
-Las unidades falsificadas o de mala calidad son frecuentes: el sistema muestra,
-por ejemplo, 64 GB, pero la memoria real puede ser de solo 8 GB. Al copiar
-archivos grandes, estos se corrompen o desaparecen sin aviso. capacidadReal hace
-una prueba rápida por muestreo: escribe, lee y restaura unos cientos de bloques
-para descubrir si el controlador repite direcciones o si el espacio anunciado no
-existe.
+capacidadReal es una aplicación para Linux con una ventana sencilla, en modo oscuro: elegís la
+memoria, pulsás **Comprobar capacidad** y ves el resultado. También muestra el
+número de serie, cuando está disponible, y permite copiarlo.
 
-Sirve para revisar un pendrive recién comprado, una unidad usada o una memoria
-de dudosa procedencia antes de confiarle datos. Inspirada en la sencillez de
-ValiDrive; implementación independiente, sin relación con GRC. No ejecuta F3.
+## ¿Qué problema resuelve?
 
-> **La prueba escribe en el dispositivo**, aunque después restaura los bloques
-> originales. Usá una unidad vacía o conservá una copia de los archivos
-> importantes. Leé «Cuidado de datos y recuperación» antes de empezar.
+Algunas memorias falsificadas anuncian más espacio del que realmente tienen.
+Por ejemplo, un pendrive puede aparecer como de **256 GB** en la computadora
+aunque solo tenga **32 GB**. Al superar su capacidad real, los archivos pueden
+perderse o sobrescribirse sin que el sistema lo advierta claramente.
 
-## Descarga e instalación
+Esta aplicación busca detectar ese engaño antes de que confíes tus archivos
+importantes a la memoria. Si encuentra espacio que no guarda los datos o zonas
+que se repiten, lo indica y muestra una estimación cuando es posible.
 
-El paquete `.deb` se publica en la sección **Releases** de este repositorio.
-También podés generarlo vos mismo con `bash packaging/build-deb.sh`.
+## Una comprobación rápida
 
-Requisitos: Linux con GTK 3 y Python 3.11 o posterior, UDisks2 y Polkit
-(`pkexec`), o `sudo` como alternativa. Se comprueba en Debian 13 amd64 y está
-pensado para Debian y derivados como Ubuntu.
+La prioridad del proyecto es **una única función: comprobar rápidamente la
+capacidad por muestreo, desde una interfaz gráfica**.
 
-1. Descargá `capacidadreal_0.2.1_all.deb` desde Releases y abrilo con el
-   instalador de paquetes de tu escritorio.
-   Si tu escritorio no tiene uno: `sudo apt install ./capacidadreal_0.2.1_all.deb`.
-2. Abrí **capacidadReal** en el menú de aplicaciones.
-3. Seleccioná el pendrive y pulsá **Comprobar capacidad**.
-4. Autorizá el acceso de administrador cuando Linux lo solicite.
-5. Esperá el resultado y la restauración de los bloques antes de desconectarlo.
-   Al terminar, la aplicación muestra un aviso verde: **«Dispositivo listo para
-   desenchufar»**. Recién entonces podés retirarlo.
+El programa prueba pequeñas zonas repartidas por toda la capacidad anunciada.
+En memorias habituales, esas zonas suman aproximadamente **2–3 MB**. No llena
+el pendrive ni lee todos sus gigabytes. El tiempo real depende de la velocidad
+y del estado de la memoria; todavía no publicamos tiempos medidos en hardware.
 
-La aplicación desmonta las particiones con UDisks y rechaza discos internos,
-particiones montadas, swap y dispositivos en uso. La unidad queda desmontada
-al terminar; podés abrirla de nuevo desde el administrador de archivos.
-En escritorios sin agente de Polkit (por ejemplo, algunas instalaciones de i3),
-la autorización se solicita en un diálogo GTK y se envía a `sudo` por una tubería.
-Las contraseñas no se guardan ni forman parte del paquete o del repositorio.
+### ¿Qué significa «restaurar los datos»?
 
-## Qué comprueba y qué significa el resultado
+Para saber si una zona guarda información de verdad, hay que escribir algo y
+leerlo después. El programa hace lo siguiente:
 
-Se prueban 576 posiciones distribuidas por el espacio anunciado, más pares de
-direcciones separadas por potencias de dos para descubrir controladores que
-reutilizan la misma memoria. Son aproximadamente 600–750 bloques de 4 KiB en
-unidades habituales. El volumen de datos probado es pequeño y acotado; la
-duración depende especialmente de la latencia y del estado del USB. No se promete
-un tiempo máximo: el kernel puede esperar a un dispositivo que falla.
+1. Guarda lo que había en las pequeñas zonas que va a probar.
+2. Escribe datos de prueba y comprueba que se puedan leer correctamente.
+3. Vuelve a colocar los datos originales **solo en esas mismas zonas** y verifica
+   que quedaron como estaban.
 
-Todos los originales se leen y se guardan antes de escribir. Después se escriben
-patrones distintos, se sincroniza y se leen en otro orden. Se utiliza E/S directa
-y se invalida la caché del kernel. Finalmente se restauran y se vuelven a leer los
-originales. La salida solo indica restauración correcta si esa lectura coincide.
+Esto no es una copia ni una restauración de todo el pendrive. Las pruebas
+automáticas del desarrollo usan, además, un archivo temporal para comprobar
+que el programa restaura correctamente lo que modifica; ese archivo no es tu USB.
 
-- **Capacidad compatible:** todas las muestras pasan; no se detectó capacidad falsa.
-- **Capacidad falsa detectada:** direcciones distintas devuelven el patrón escrito
-  en otra dirección. Se estima el período de repetición mediante sus diferencias.
-  Este período no certifica que toda esa cantidad de memoria esté sana.
-- **El espacio anunciado no se verifica:** las muestras iniciales pasan y las
-  posteriores fallan. Se muestra el intervalo de transición observado, sin
-  confundir una estimación con una capacidad exacta al sector.
-- **Datos incorrectos / sin resultado:** no se puede determinar una capacidad
-  útil confiable. Un fallo físico también puede causar diferencias.
+## Descargar e instalar
 
-**Límite fundamental:** una prueba por muestreo no verifica cada sector. Un
-controlador que conserve todas las muestras en una caché persistente, una
-traducción de direcciones no cubierta por los pares, o daños entre muestras
-pueden pasar inadvertidos. Para una certificación completa se necesita escribir
-y leer todo el espacio (por ejemplo, F3 sobre una unidad vacía). Este programa
-prioriza la prueba rápida solicitada y muestra explícitamente ese alcance.
+**[Descargar el instalador .deb 0.2.2](https://github.com/babinium/capacidadReal/releases/download/v0.2.2/capacidadreal_0.2.2_all.deb)**
+· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.2)
 
-## Cuidado de datos y recuperación
+Probado en **Debian 13 con entorno gráfico**. Otras distribuciones basadas en
+Debian pueden funcionar si tienen las dependencias necesarias; no se han verificado.
 
-La prueba **escribe en el dispositivo**, aunque restaura los bloques originales.
-Usá una unidad vacía o conservá una copia de los archivos importantes. Un fallo
-eléctrico, desconexión, memoria defectuosa o controlador engañoso puede impedir
-la restauración. Esta aplicación inicial se prueba automáticamente con unidades
-simuladas; aún necesita validación adicional con hardware diverso.
+1. Abrí el `.deb` con el instalador de paquetes de tu escritorio.
+2. Buscá **capacidadReal** en el menú de aplicaciones.
+3. Conectá y elegí el pendrive o la tarjeta SD.
+4. Pulsá **Comprobar capacidad** y autorizá los permisos de Linux.
+5. Esperá el aviso verde **«Dispositivo listo para desenchufar»** antes de
+   desconectar la memoria.
 
-Antes de la primera escritura se sincroniza una copia de los bloques originales
-en `/var/lib/capacidadreal/`, accesible solo para root. Se elimina solo tras
-restaurar y verificar. Cancelar solicita recuperación; no mata el proceso.
-Si desaparece la interfaz, el ayudante deja de probar y restaura. Si se corta
-la energía o desaparece el USB, la copia permanece: al volver a seleccionar
-la misma unidad, la aplicación ofrece recuperar los bloques antes de otra prueba.
-No escribas archivos nuevos mientras haya una recuperación pendiente. Verificá
-que sea el mismo dispositivo: algunos USB no tienen número de serie único.
+Si tu escritorio no tiene instalador gráfico, abrí una terminal en la carpeta
+donde descargaste el archivo y ejecutá:
 
-## Desarrollo y paquete
+```bash
+sudo apt install ./capacidadreal_0.2.2_all.deb
+```
 
-Python 3 + GTK 3; sin Electron, sin servicios permanentes y sin compilación
-necesaria para usarlo. El ayudante privilegiado acepta únicamente operaciones
-de comprobación y recuperación sobre un disco USB validado. La interfaz corre
-como usuario normal. El paquete usa dependencias de Debian y arquitectura `all`;
-se comprueba en Debian 13 amd64, incluido el destino Celeron B820 sin AVX.
+La aplicación cierra el acceso a los archivos de la memoria durante la prueba.
+Al terminar, podés volver a abrirla desde tu administrador de archivos.
 
-El workflow manual `.github/workflows/compilar-debian.yml` ejecuta pruebas del
-motor y de seguridad, construye e instala el `.deb` en Debian 13 y captura la
-interfaz con Xvfb usando una unidad ficticia. Los artefactos incluyen el paquete,
-capturas, pruebas y comprobantes SHA-256. No se hacen pruebas sobre discos reales
-desde CI. El workflow no publica releases automáticamente.
+## Número de serie del pendrive o SD
 
-Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
-Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
-Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
+- **Pendrive:** muestra la serie que el dispositivo informa a Linux.
+- **SD en un lector nativo compatible:** muestra la serie de la tarjeta cuando
+  Linux la expone. Se admiten tarjetas SD extraíbles; la memoria eMMC interna se excluye.
+- **SD en un lector USB:** el número disponible puede ser el del lector. La
+  aplicación lo aclara; no lo presenta como si necesariamente fuera el de la tarjeta.
+- Si no se puede obtener un número, aparece **«No disponible»**.
 
-Versión actual: **0.2.1**. Licencia MIT.
+El botón **Copiar** copia únicamente el número de serie. Este dato ayuda a
+identificar la unidad, pero por sí solo no demuestra que sea original.
+
+## Cómo interpretar el resultado
+
+| Resultado | Qué significa |
+| --- | --- |
+| **Capacidad compatible** | Todas las muestras pasaron. No se detectó capacidad falsa en esta prueba. |
+| **Capacidad falsa detectada** | Diferentes posiciones están reutilizando la misma memoria. Se muestra una estimación. |
+| **El espacio anunciado no se verifica** | Parte del espacio no conserva correctamente las muestras. Puede ser capacidad falsa o memoria dañada. |
+| **No se pudo completar la prueba** | Hubo un problema de acceso o del dispositivo; no hay un resultado confiable. |
+
+## Antes de usarla
+
+**Es una versión inicial.** Pasó pruebas automáticas con dispositivos simulados,
+lectura y escritura directa sobre un archivo temporal, e interfaz gráfica.
+Todavía necesita validación con distintos pendrives y lectores físicos.
+
+Usá una memoria vacía o conservá una copia de tus archivos importantes. La prueba
+escribe pequeñas muestras y restaura los originales, pero un fallo del dispositivo
+o una desconexión puede impedir la restauración. Si hay una interrupción, conserva
+una copia de recuperación y ofrece restaurarla antes de otra prueba.
+
+Una comprobación rápida **no garantiza que cada rincón de la memoria esté sano**.
+Algunos engaños sofisticados o problemas entre las muestras pueden pasar
+inadvertidos. La aplicación muestra este alcance y no convierte una estimación
+en una garantía de capacidad exacta.
+
+## Para quienes quieran conocer el código
+
+Está hecha con Python y GTK, es liviana y no instala servicios permanentes.
+No guarda contraseñas. Está inspirada en la sencillez de ValiDrive, con una
+implementación independiente y sin relación con GRC. No ejecuta F3.
+
+[Detalles técnicos, recuperación y pruebas](docs/DETALLES.md).
+El flujo de GitHub Actions genera el `.deb` y ejecuta las verificaciones en Debian 13.
+
+Licencia MIT.

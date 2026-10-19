@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Narrow privileged worker: accepts only a whole, unmounted USB block device."""
+"""Privileged worker: whole, unmounted USB disks or removable native SD cards."""
 import base64
 import fcntl
 import hashlib

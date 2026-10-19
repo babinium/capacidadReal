@@ -13,6 +13,7 @@ class MemoryDevice:
         self.wrap = wrap
         self.data = {}
         self.writes = 0
+        self.reads = 0
         self.failed_once = False
         self.fail_write = None
         self.fail_read_after_writes = False
@@ -29,6 +30,7 @@ class MemoryDevice:
         return hashlib.sha256(str(address).encode()).digest() * (self.block // 32)
 
     def read(self, offset):
+        self.reads += 1
         if self.fail_read_after_writes and self.writes and not self.failed_once:
             self.failed_once = True
             raise OSError("simulated read failure")
@@ -65,6 +67,15 @@ class MemoryJournal:
 
 
 class EngineTests(unittest.TestCase):
+    def test_large_drive_still_uses_a_small_bounded_sample(self):
+        dev = MemoryDevice(size=2_000_000_000_000)
+        result = run(dev, MemoryJournal())
+        self.assertEqual(result["status"], "compatible")
+        self.assertLess(result["samples"], 800)
+        self.assertLess(dev.writes * dev.block, 7 * 1024 * 1024)
+        self.assertLess(dev.reads * dev.block, 10 * 1024 * 1024)
+        self.assertTrue(dev.restored())
+
     def test_patterns_are_distinct_and_not_repeated_short_chunks(self):
         data = pattern(0, 4096, b"test nonce")
         self.assertEqual(len(data), 4096)

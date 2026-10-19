@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from capacidadreal.devices import validate
+from capacidadreal.devices import identify, serial_details, usable, validate
 from capacidadreal.helper import Journal, RawDevice
 from capacidadreal.engine import run
 from test_engine import MemoryDevice, MemoryJournal
@@ -21,6 +21,43 @@ def device(**overrides):
 
 
 class SafetyTests(unittest.TestCase):
+    def test_native_sd_serial_and_embedded_mmc_rejection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            attr = root / "mmcblk0/device"
+            attr.mkdir(parents=True)
+            (attr / "type").write_text("SD\n")
+            (attr / "serial").write_text("0x1234abcd\n")
+            info = identify(device(name="/dev/mmcblk0", tran="mmc", rm=True), root)
+            self.assertTrue(usable(info))
+            self.assertEqual(info["serial"], "0x1234abcd")
+            self.assertEqual(serial_details(info)[1], "Número de serie de la tarjeta SD, informado por Linux.")
+            validate(info, info["size"], "0x1234abcd")
+            (attr / "type").write_text("MMC\n")
+            embedded = identify(device(name="/dev/mmcblk0", tran="mmc", rm=True), root)
+            self.assertFalse(usable(embedded))
+            with self.assertRaises(ValueError):
+                validate(embedded, embedded["size"], embedded["serial"])
+
+    def test_nonremovable_sd_is_not_a_test_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            attr = root / "mmcblk0/device"
+            attr.mkdir(parents=True)
+            (attr / "type").write_text("SD\n")
+            info = identify(device(name="/dev/mmcblk0", tran="mmc", rm=False), root)
+            self.assertFalse(usable(info))
+
+    def test_usb_serial_source_and_missing_serial(self):
+        info = identify(device(serial="  ABC123  "))
+        serial, note, available = serial_details(info)
+        self.assertEqual(serial, "ABC123")
+        self.assertIn("lector", note)
+        self.assertTrue(available)
+        serial, note, available = serial_details(identify(device(serial=None)))
+        self.assertEqual(serial, "No disponible")
+        self.assertFalse(available)
+
     def test_real_direct_io_on_temporary_file_restores_every_byte(self):
         # Exercise production preadv/pwritev and aligned mmap buffers on an
         # ordinary temporary file. Never open a real disk from tests.
