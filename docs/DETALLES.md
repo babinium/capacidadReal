@@ -101,4 +101,4 @@ Para desarrollar: `PYTHONPATH=src python3 -m capacidadreal.app --demo`.
 Para probar: `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
 Para empaquetar en el entorno de compilación: `bash packaging/build-deb.sh`.
 
-Versión actual: **0.2.7**. Licencia MIT.
+Versión actual: **0.2.8**. Licencia MIT.

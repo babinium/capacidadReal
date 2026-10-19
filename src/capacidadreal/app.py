@@ -38,6 +38,9 @@ window { background: #0f141b; color: #e6edf5; }
 .primary:disabled { background: #27313f; color: #6f7f92; }
 .primary:disabled label { color: #6f7f92; }
 .secondary { background: #232e3b; color: #dbe5f0; border: 1px solid #33404f; border-radius: 8px; padding: 9px 13px; }
+.secondary:active { background: #111927; border-color: #415570; }
+.secondary.copied { background: #10352a; border-color: #1f6f57; }
+.secondary.copied label { color: #4ade80; }
 .success { color: #34d399; }
 .warning { color: #fbbf24; }
 progressbar trough { min-height: 6px; border: 0; background: #243040; border-radius: 4px; }
@@ -72,6 +75,7 @@ class Window(Gtk.ApplicationWindow):
         self.refreshing = False
         self.active_item = None
         self.result_report = ""
+        self.copy_feedback_until = None
         self.cancel_requested = False
         self.pending_recovery = False
         self.using_sudo = False
@@ -264,7 +268,13 @@ class Window(Gtk.ApplicationWindow):
 
     def clear_report(self):
         self.result_report = ""
+        self.reset_copy_feedback()
         self.copy_result_button.set_sensitive(False)
+
+    def reset_copy_feedback(self):
+        self.copy_feedback_until = None
+        self.copy_result_button.set_label("Copiar resultado")
+        self.copy_result_button.get_style_context().remove_class("copied")
 
     def save_report(self, event):
         # Freeze the tested device and terminal result, never the live selection
@@ -272,6 +282,7 @@ class Window(Gtk.ApplicationWindow):
         item = self.active_item
         if item is None:
             return
+        self.reset_copy_feedback()
         serial, note, _ = serial_details(item)
         model = " ".join((item.get("model") or "Memoria").split())
         duration = event.get("elapsed")
@@ -303,12 +314,17 @@ class Window(Gtk.ApplicationWindow):
             clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
             clipboard.set_text(self.result_report, -1)
             clipboard.store()
+            self.copy_result_button.set_label("Informe copiado ✓")
+            self.copy_result_button.get_style_context().add_class("copied")
+            self.copy_feedback_until = time.monotonic() + 3
 
     def periodic_refresh(self):
         self.refresh()
         return True
 
     def tick(self):
+        if self.copy_feedback_until is not None and time.monotonic() >= self.copy_feedback_until:
+            self.reset_copy_feedback()
         if self.busy and self.started is not None and not self.terminal_event:
             seconds = int(time.monotonic() - self.started)
             self.elapsed.set_text(f"{seconds // 60:02d}:{seconds % 60:02d}")

@@ -2,7 +2,7 @@
 from unittest.mock import patch
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gdk, GLib, Gtk
 from capacidadreal.app import Window
 
 app = Gtk.Application(application_id="io.github.babinium.capacidadReal.Tests")
@@ -36,6 +36,13 @@ with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted pr
         window.copy_result()
         clipboard.return_value.set_text.assert_called_once_with(report, -1)
         clipboard.return_value.store.assert_called_once()
+        # Keep a visual artifact of the actual copied confirmation under Xvfb.
+        draw_loop = GLib.MainLoop()
+        GLib.timeout_add(150, draw_loop.quit)
+        draw_loop.run()
+        capture = Gdk.pixbuf_get_from_window(window.get_window(), 0, 0,
+                                            window.get_allocated_width(), window.get_allocated_height())
+        capture.savev("artifacts/informe-copiado.png", "png", [], [])
     # Refreshing the same drive preserves the result.
     window.set_devices(list(window.devices))
     assert "compatible" in window.title_label.get_text()

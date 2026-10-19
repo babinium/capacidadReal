@@ -55,8 +55,8 @@ que el programa restaura correctamente lo que modifica; ese archivo no es tu USB
 
 ## Descargar e instalar
 
-**[Descargar el instalador .deb 0.2.7](https://github.com/babinium/capacidadReal/releases/download/v0.2.7/capacidadreal_0.2.7_all.deb)**
-· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.7)
+**[Descargar el instalador .deb 0.2.8](https://github.com/babinium/capacidadReal/releases/download/v0.2.8/capacidadreal_0.2.8_all.deb)**
+· [Página de la versión](https://github.com/babinium/capacidadReal/releases/tag/v0.2.8)
 
 Probado en **Debian 13 con entorno gráfico**. Otras distribuciones basadas en
 Debian pueden funcionar si tienen las dependencias necesarias; no se han verificado.
@@ -72,7 +72,7 @@ Si tu escritorio no tiene instalador gráfico, abrí una terminal en la carpeta
 donde descargaste el archivo y ejecutá:
 
 ```bash
-sudo apt install ./capacidadreal_0.2.7_all.deb
+sudo apt install ./capacidadreal_0.2.8_all.deb
 ```
 
 La aplicación cierra el acceso a los archivos de la memoria durante la prueba.
@@ -100,7 +100,8 @@ corresponde y aclara que se trata de una prueba por muestreo.
 
 También podés copiar el informe de una cancelación o un error. Al elegir otra
 memoria o iniciar otra prueba se limpia el informe anterior para evitar
-confusiones. Los datos quedan en el portapapeles para pegarlos donde elijas.
+confusiones. Los datos quedan en el portapapeles para pegarlos donde elijas. Al copiar, el
+botón se pone verde y muestra **«Informe copiado ✓»** durante unos tres segundos.
 
 ## Cómo interpretar el resultado
 
