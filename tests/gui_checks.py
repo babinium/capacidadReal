@@ -1,0 +1,25 @@
+"""Run under Xvfb. No real device access or privileged process is allowed."""
+from unittest.mock import patch
+from gi.repository import Gtk
+from capacidadreal.app import Window
+
+app = Gtk.Application(application_id="io.github.babinium.capacidadReal.Tests")
+app.register(None)
+with patch("subprocess.Popen", side_effect=AssertionError("GUI demo attempted process launch")):
+    window = Window(app, demo=True)
+    assert window.start_button.get_sensitive()
+    window.start_clicked()
+    assert "compatible" in window.title_label.get_text()
+    # Refreshing the same drive preserves the result.
+    window.set_devices(list(window.devices))
+    assert "compatible" in window.title_label.get_text()
+    # Selecting another drive must never display the previous drive's result.
+    other = dict(window.devices[0], name="/dev/demo2", serial="OTHER", size=8_000_000_000)
+    window.set_devices([other])
+    assert "compatible" not in window.title_label.get_text()
+    assert all(c == "pending" for c in window.cells)
+    assert window.progress.get_fraction() == 0
+    window.set_devices([])
+    assert not window.start_button.get_sensitive()
+    window.destroy()
+print("Interfaz: selección, resultado, cambio de unidad y desconexión verificados.")

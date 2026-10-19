@@ -66,6 +66,7 @@ class Window(Gtk.ApplicationWindow):
         self.cancel_requested = False
         self.pending_recovery = False
         self.using_sudo = False
+        self.display_identity = None
         self.connect("delete-event", self.on_close)
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
@@ -184,6 +185,16 @@ class Window(Gtk.ApplicationWindow):
 
     def selection_changed(self, *_):
         item = next((d for d in self.devices if d["name"] == self.combo.get_active_id()), None)
+        identity = (item["name"], item.get("serial"), item.get("size")) if item else None
+        if not self.busy and identity != self.display_identity:
+            self.display_identity = identity
+            self.title_label.set_text("Una prueba breve, un resultado claro")
+            self.description.set_text("Se prueban pequeñas muestras a lo largo del espacio anunciado. Los bloques originales se guardan y se restauran al terminar.")
+            self.cells = ["pending"] * 576
+            self.grid.queue_draw()
+            self.progress.set_fraction(0)
+            self.status.set_text("Listo para comenzar" if item else "Conectá un pendrive")
+            self.elapsed.set_text("")
         self.start_button.set_sensitive(bool(item and item.get("size") and not self.busy))
         if not item:
             self.device_detail.set_text("Conectá un pendrive para comenzar. Solo aparecen discos USB.")

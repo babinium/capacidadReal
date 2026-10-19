@@ -4,6 +4,7 @@ mkdir -p artifacts
 export PYTHONPATH="$PWD/src"
 python3 -m compileall -q src
 python3 -m unittest discover -s tests -v 2>&1 | tee artifacts/pruebas.txt
+xvfb-run -a dbus-run-session -- python3 tests/gui_checks.py 2>&1 | tee artifacts/pruebas-interfaz.txt
 bash packaging/build-deb.sh
 dpkg-deb --info artifacts/capacidadreal_0.1.0_all.deb > artifacts/paquete.txt
 dpkg-deb --contents artifacts/capacidadreal_0.1.0_all.deb >> artifacts/paquete.txt

@@ -1,13 +1,16 @@
 import base64
 import json
+import mmap
+import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from capacidadreal.devices import validate
-from capacidadreal.helper import Journal
-from test_engine import MemoryDevice
+from capacidadreal.helper import Journal, RawDevice
+from capacidadreal.engine import run
+from test_engine import MemoryDevice, MemoryJournal
 
 
 def device(**overrides):
@@ -18,6 +21,26 @@ def device(**overrides):
 
 
 class SafetyTests(unittest.TestCase):
+    def test_real_direct_io_on_temporary_file_restores_every_byte(self):
+        # Exercise production preadv/pwritev and aligned mmap buffers on an
+        # ordinary temporary file. Never open a real disk from tests.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "usb-simulation.bin"
+            original = os.urandom(2 * 1024 * 1024)
+            path.write_bytes(original)
+            dev = RawDevice.__new__(RawDevice)
+            dev.fd = os.open(path, os.O_RDWR | os.O_DIRECT)
+            dev.block = 4096
+            dev.size = len(original)
+            dev.buffer = mmap.mmap(-1, dev.block)
+            dev.flush = lambda: os.fsync(dev.fd)
+            try:
+                result = run(dev, MemoryJournal())
+                self.assertEqual(result["status"], "compatible")
+            finally:
+                dev.close()
+            self.assertEqual(path.read_bytes(), original)
+
     def test_reject_non_usb(self):
         with self.assertRaises(ValueError):
             validate(device(tran="sata"), 64 * 1024 * 1024, "test")
